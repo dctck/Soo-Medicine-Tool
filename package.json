@@ -1,0 +1,9 @@
+{
+  "name": "soo-clinic-cms",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "^10.0.0"
+  }
+}
