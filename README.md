@@ -21,3 +21,11 @@ RSS가 전체 본문/모든 이미지를 제공하지 않는 글은 원문 링�
 
 ## 미디어
 현재 UI의 이미지 자체는 localStorage data URL 방식을 유지합니다. 프로덕션 업로드 endpoint를 붙일 때 Netlify Blobs의 별도 media store로 옮길 수 있습니다.
+
+## Media persistence update
+- Image bytes are uploaded to the site-wide `soo-media` Netlify Blob store.
+- The media library index is also stored in Netlify Blobs.
+- Images therefore remain available across browsers and new deploys.
+- Article media sections store the media ID/URL rather than base64 image data.
+- Media can be deleted from the media library.
+- MVP validates image MIME type and limits uploads to 12 MB.
