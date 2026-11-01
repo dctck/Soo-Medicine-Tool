@@ -1,9 +1,10 @@
+import {matchSourceSpacing} from '../../../public/assets/text-format.js';
 import {randomUUID} from 'node:crypto';
 import {article,treatment,settings,defaults,slug,fail,HttpError,text} from './model.mjs';
 import {authenticate,csrf,sameOrigin,verify,token,digest,cookie,sessionKey} from './auth.mjs';
 import {fetchDrafts} from './rss.mjs';
 import {mediaType} from './media.mjs';
-import {canonicalPost,importFullPost} from './naver.mjs';
+import {canonicalPost,importFullPost,sourceParagraphs,previewNaverLink} from './naver.mjs';
 import {validateInquiry} from '../../../public/assets/inquiry-rules.js';
 const MAX=4_000_000;
 const json=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
@@ -54,6 +55,10 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
 
  if(path==='/admin/import/feed'&&method==='POST'){
   const value=await body(request),config=await store.get('settings',{type:'json'});const items=await fetchDrafts(value.blogId||config?.naverBlogId||env.NAVER_BLOG_ID||'kmd_jjs',fetcher);const saved=await records(store,'articles/');return json(items.map(item=>{const canonical=canonicalPost(item.sourceUrl).url;const existing=saved.find(x=>{try{return canonicalPost(x.sourceUrl).url===canonical;}catch{return false;}});return {...item,existingSlug:existing?.slug??'',existingStatus:existing?.status??''};}));
+ }
+ if(path==='/admin/link-preview'&&method==='POST'){const value=await body(request);return json(await previewNaverLink(value.url,{store,media,fetcher}));}
+ if(path==='/admin/import/spacing'&&method==='POST'){
+  const value=await body(request);const existing=await store.get('articles/'+slug(value.slug),{type:'json'});if(!existing)fail(404,'글을 찾을 수 없습니다.');const original=await sourceParagraphs(existing.sourceUrl,fetcher),used=new Set();let changed=0;const content=structuredClone(existing);for(const section of content.sections){if(!['text','quote','heading','callout'].includes(section.type))continue;for(let i=0;i<original.length;i++){if(used.has(i)||original[i].type!==section.type)continue;const runs=matchSourceSpacing(section.runs,section.text,original[i].runs?.map(x=>x.text).join('')||original[i].text);if(runs){used.add(i);const next=runs.map(x=>x.text).join('');if(next!==section.text){section.runs=runs;section.text=next;changed++;}break;}}}return json({article:content,changed});
  }
  if(path==='/admin/import/full'&&method==='POST'){
   const value=await body(request);const canonical=canonicalPost(value.url);const saved=await records(store,'articles/');const existing=saved.find(x=>{try{return canonicalPost(x.sourceUrl).url===canonical.url;}catch{return false;}});

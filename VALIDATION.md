@@ -32,3 +32,11 @@ No hosted Netlify site was deployed or modified. Hosted Naver connectivity and d
 - GitHub source package kept below 100 files, with public source alone below 100 files.
 - Clean source staging build/check performed without public/assets/fonts/ present. All 124 deployed font subsets and the license are generated and verified.
 - Functional editor/API features unchanged; prior 40 tests and storage integration remain applicable.
+
+## Version 7 verification
+
+- 49 automated tests pass, including selected formatting toggles, mixed marks, complete inline reset, safe custom colors, Unicode excerpt truncation, paragraph spacing, thumbnail import, SSRF rejection and non-saving spacing repair.
+- Build and source/deployment reference checks pass. Real Netlify Blobs SDK integration passes for sessions, private drafts, publish, persistence restart and media/ranges.
+- Browser UI checks: select-all bold then unbold; custom green color; add favorite; recent/favorite entries; selected-color pressed state; highlight then Tx leaves plain text without strong/mark/color/link wrappers; save and reopen preserves text and color; Naver metadata action creates loaded thumbnail card; preview preserves a single newline and an intentional empty line.
+- Native live import against kmd_jjs/224457638569: four of four body images plus two related thumbnails stored; TalkTalk URL cleaned. No existing user article was modified by QA. A private test draft named 편집기 서식 확인 · 테스트 remains in the local preview only.
+- Not deployed to a production Netlify site; upload this source package to the connected GitHub repository and let Netlify build it.
