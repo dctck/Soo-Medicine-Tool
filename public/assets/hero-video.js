@@ -1,0 +1,2 @@
+// Keep settings hydration from restarting an already-playing video.
+export function configureHeroVideo(video,url,{paused=false,base=location.href}={}){const current=video.currentSrc||video.getAttribute('src')||video.querySelector('source')?.getAttribute('src')||'';const same=Boolean(current)&&new URL(current,base).href===new URL(url,base).href;if(!same){if(url==='/assets/intro.mp4')video.setAttribute('poster','/assets/intro-poster.jpg');else video.removeAttribute('poster');video.src=url;}if(!paused&&video.paused)video.play().catch(()=>{});return !same;}

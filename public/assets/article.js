@@ -1,9 +1,10 @@
+import {applySiteCopy} from './site-content.js';
 import {$,el,api,renderSections,safeMedia,httpsLink,cards} from './shared.js';
 const target=$('#article'),heading=$('#article-heading'),slug=location.pathname.split('/').filter(Boolean)[1];
 async function load(){try{
  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug??''))throw {status:404};
  const [item,settings,treatments]=await Promise.all([api('/public/articles/'+slug),api('/public/settings'),api('/public/treatments').catch(()=>[])]);
- const chosen=treatments.filter(x=>item.treatments.includes(x.slug));document.title=item.title+' | '+settings.name;document.querySelector('meta[name="description"]').content=item.excerpt;
+ applySiteCopy(settings);const chosen=treatments.filter(x=>item.treatments.includes(x.slug));document.title=item.title+' | '+settings.name;document.querySelector('meta[name="description"]').content=item.excerpt;
  const crumbs=el('nav','',{class:'breadcrumbs','aria-label':'현재 위치'});crumbs.append(el('a','홈',{href:'/'}),document.createTextNode(' › '),el('a','건강 이야기',{href:'/blog/'}));
  heading.replaceChildren(crumbs);const pills=el('div','',{class:'article-pills'});for(const title of chosen.length?chosen.map(x=>x.title):['건강 이야기'])pills.append(el('span',title,{class:'article-pill'}));heading.append(pills,el('h1',item.title));
  const author=el('div','',{class:'article-author'});if(safeMedia(settings.portrait)){const avatar=el('span','',{class:'article-avatar'});avatar.append(el('img','',{src:settings.portrait,alt:settings.doctorName||settings.name,width:'46',height:'58'}));author.append(avatar);}const meta=el('div');meta.append(el('strong',settings.doctorName||settings.name),document.createTextNode(settings.name+(item.publishedAt?' · '+new Date(item.publishedAt).toLocaleDateString('ko-KR'):'')));author.append(meta);heading.append(author);

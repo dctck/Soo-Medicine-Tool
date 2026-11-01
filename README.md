@@ -157,3 +157,24 @@ Titles and summaries clamp to two lines. Mobile cards use one column up to 800px
 ## Version 11: approved thumbnail crop
 
 Article listing thumbnails use a fixed 4:3 frame with object-fit: cover and centered cropping, filling edge to edge. This supersedes version 10 contain fitting. Two-line titles/summaries and one mobile column remain.
+
+## Version 12: hero video hydration
+
+Settings no longer reassign the same video source after HTML autoplay starts. The built-in video uses its own first frame as poster, rather than the unrelated interior photo. Switching to an uploaded video removes that built-in poster; reduced-motion and manual pause are preserved. Browser refresh checks confirm ready/playing with no redundant src assignment. 56 tests pass.
+
+## Version 13: website editor and private inquiry email
+
+**홈페이지 편집** groups landing-page copy, common navigation/branding, hero, doctor introduction, treatment heading and three process steps, journal headings, contact/hours/directions/parking/map links, consultation form labels/privacy copy, photos/video and browser search descriptions. Existing treatment entries remain in 관련 진료 관리. Editable copy is plain text, never executable HTML. Existing settings gain new defaults without losing saved values. Menu/brand/footer updates apply to the homepage, blog list and article pages.
+
+**저장 전 미리보기** validates inputs without saving, then opens an actual homepage preview using a random browser-local draft ID that expires in ten minutes. The banner identifies preview mode and consultation submission is disabled there. Preview URLs work only in that browser. **홈페이지 변경 내용 저장** applies changes immediately; this is a content editor rather than a drag-and-drop page layout designer.
+
+**상담신청 이메일 알림** supports a private recipient, enable switch, server-configuration status and a rate-limited test-send button. Recipient settings are excluded from the public settings endpoint and from preview data. Mail is sent server-side through Resend; secret credentials never enter studio/browser code. The notification contains an admin link and receipt ID, with contact details available inside the password-protected studio. Inquiries are stored before notification attempts; provider failures do not discard submissions. Staff see notification status on each inquiry. "발송 요청 완료" means provider acceptance, not guaranteed inbox delivery. No real email was sent during development; provider tests use simulated responses.
+
+### Email setup without a terminal
+
+1. In Resend, verify a sending domain and create an API key. Use a sender address on that verified domain. See https://resend.com/docs/dashboard/domains/introduction and https://resend.com/docs/api-reference/emails/send-email .
+2. In Netlify, open the site's Project configuration → Environment variables. Add `RESEND_API_KEY` (the Resend key) and `INQUIRY_FROM_EMAIL` (the plain verified sender address, e.g. notifications@your-domain.example), with Functions scope and the Production deploy context. Do not put real values in GitHub or this ZIP.
+3. Redeploy the site from Deploys so Functions receive the new environment. The existing admin-password configuration stays as it is.
+4. In the studio, open 홈페이지 편집 → 상담신청 이메일 알림. Set the recipient, enable email, save, then use 저장된 주소로 테스트 메일 보내기. Confirm receipt in the inbox/spam folder. Configure separate credentials for preview contexts if you want preview deployments to send mail.
+
+Email remains off by default. Until configured, inquiries continue to appear in 상담신청 관리. Automatic sending is bounded by the existing inquiry rate limit, has an eight-second timeout, no redirects, and uses idempotency per inquiry. Test email is capped at three requests per 15 minutes per IP. No public email endpoint accepts caller-supplied recipients.

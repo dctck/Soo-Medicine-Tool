@@ -1,7 +1,8 @@
+import {notifyInquiry,mailConfigured} from './inquiry-mail.mjs';
 import {fetchPostList} from './naver-list.mjs';
 import {matchSourceSpacing} from '../../../public/assets/text-format.js';
 import {randomUUID} from 'node:crypto';
-import {article,treatment,settings,defaults,slug,fail,HttpError,text} from './model.mjs';
+import {article,treatment,settings,publicSettings,defaults,slug,fail,HttpError,text} from './model.mjs';
 import {authenticate,csrf,sameOrigin,verify,token,digest,cookie,sessionKey} from './auth.mjs';
 import {fetchDrafts} from './rss.mjs';
 import {mediaType} from './media.mjs';
@@ -20,9 +21,9 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
  }
 
  if(path==='/public/inquiries'&&method==='POST'){
-  sameOrigin(request);const input=await body(request);const validation=validateInquiry(input);if(validation.error)fail(400,validation.error);const bucket=Math.floor(Date.now()/900000),prefix=`attempts/inquiry/${digest(context.ip??'shared')}/${bucket}/`;let permitted=false;for(let i=0;i<5;i++){const write=await store.setJSON(prefix+i,{at:Date.now()},{onlyIfNew:true});if(write.modified){permitted=true;break;}}if(!permitted)fail(429,'상담신청 횟수를 초과했습니다. 잠시 후 다시 시도해 주세요.');const id=randomUUID(),now=Date.now();await store.setJSON('inquiries/'+id,{id,...validation.value,status:'new',createdAt:new Date(now).toISOString(),expiresAt:now+30*86400000});return json({ok:true},201);
+  sameOrigin(request);const input=await body(request);const validation=validateInquiry(input);if(validation.error)fail(400,validation.error);const bucket=Math.floor(Date.now()/900000),prefix=`attempts/inquiry/${digest(context.ip??'shared')}/${bucket}/`;let permitted=false;for(let i=0;i<5;i++){const write=await store.setJSON(prefix+i,{at:Date.now()},{onlyIfNew:true});if(write.modified){permitted=true;break;}}if(!permitted)fail(429,'상담신청 횟수를 초과했습니다. 잠시 후 다시 시도해 주세요.');const id=randomUUID(),now=Date.now();const record={id,...validation.value,status:'new',createdAt:new Date(now).toISOString(),expiresAt:now+30*86400000};await store.setJSON('inquiries/'+id,record);const config={...defaults,...await store.get('settings',{type:'json'})};const notification=await notifyInquiry({id,settings:config,env,origin:u.origin,fetcher});await store.setJSON('inquiries/'+id,{...record,notification});return json({ok:true},201);
  }
- if(path==='/public/settings'&&method==='GET')return json(await store.get('settings',{type:'json'})??defaults);
+ if(path==='/public/settings'&&method==='GET')return json(publicSettings(await store.get('settings',{type:'json'})));
  if(/^\/public\/(articles|treatments)(\/[a-z0-9-]+)?$/.test(path)&&method==='GET'){
   const [,kind,id]=path.split('/').slice(1);const all=await records(store,kind+'/');const published=all.filter(x=>x.status==='published');
   if(id){const item=published.find(x=>x.slug===id);if(!item)fail(404,'요청한 내용을 찾을 수 없습니다.');return json(item);}return json(published.sort((a,b)=>kind==='treatments'?a.order-b.order:(b.publishedAt??b.updatedAt).localeCompare(a.publishedAt??a.updatedAt)).map(x=>kind==='articles'?{slug:x.slug,title:x.title,excerpt:x.excerpt,cover:x.cover,publishedAt:x.publishedAt,treatments:x.treatments}:x));
@@ -40,7 +41,10 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
  if(/^\/admin\/inquiries\/[a-f0-9-]{36}$/.test(path)){
   const id=path.split('/').pop(),key='inquiries/'+id;if(method==='DELETE'){await store.delete(key);return json({ok:true});}if(method==='PUT'){const item=await store.get(key,{type:'json'});if(!item||item.expiresAt<=Date.now())fail(404,'상담신청을 찾을 수 없습니다.');await store.setJSON(key,{...item,status:'done'});return json({ok:true});}
  }
- if(path==='/admin/settings'){if(method==='GET')return json(await store.get('settings',{type:'json'})??defaults);if(method==='PUT'){const value=settings(await body(request));await store.setJSON('settings',value);return json(value);}}
+ if(path==='/admin/email/status'&&method==='GET')return json({configured:mailConfigured(env)});
+ if(path==='/admin/email/test'&&method==='POST'){const slot=Math.floor(Date.now()/900000),prefix='attempts/mailtest/'+digest(context.ip??'shared')+'/'+slot+'/';let allowed=false;for(let i=0;i<3;i++){if((await store.setJSON(prefix+i,{at:Date.now()},{onlyIfNew:true})).modified){allowed=true;break;}}if(!allowed)fail(429,'테스트 메일은 15분 동안 최대 3회 보낼 수 있습니다.');const config={...defaults,...await store.get('settings',{type:'json'})};const result=await notifyInquiry({id:randomUUID(),settings:config,env,origin:u.origin,test:true,fetcher});if(result.status!=='accepted')fail(502,result.status==='failed'?'메일 발송 요청에 실패했습니다. Netlify 설정과 Resend 발신 도메인을 확인해 주세요.':'수신 이메일·알림 사용 여부와 Netlify 메일 연결 설정을 확인해 주세요.');return json({ok:true});}
+ if(path==='/admin/settings/preview'&&method==='POST')return json(publicSettings(settings(await body(request))));
+ if(path==='/admin/settings'){if(method==='GET')return json({...defaults,...await store.get('settings',{type:'json'})});if(method==='PUT'){const value=settings(await body(request));await store.setJSON('settings',value);return json(value);}}
  const match=/^\/admin\/(articles|treatments)(?:\/([a-z0-9-]+))?$/.exec(path);
  if(match){const [,kind,id]=match;if(method==='GET'&&!id)return json(await records(store,kind+'/'));
   if(method==='PUT'&&id){slug(id);const value=(kind==='articles'?article:treatment)(await body(request));if(value.slug!==id)fail(400,'글 주소가 일치하지 않습니다.');const old=await store.get(kind+'/'+id,{type:'json'});const now=new Date().toISOString();const saved={...value,createdAt:old?.createdAt??now,updatedAt:now,...(kind==='articles'?{publishedAt:value.status==='published'?(old?.publishedAt??now):null}:{})};await store.setJSON(kind+'/'+id,saved);return json(saved);}
