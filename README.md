@@ -149,3 +149,11 @@ Article pages and article previews show the title followed by body sections, wit
 The RSS option remains a recent-post list (up to 20). **전체 글 목록 불러오기** reads the public desktop category pages sequentially with progress, deduplicates URLs and marks existing imports. Category 9 is this clinic's 내과 클리닉; 0 requests the whole blog. The list operation does not import or publish articles. On a page failure it preserves results and offers resume. Per-page requests validate identifiers and numbers, have size/time limits, and target only blog.naver.com with redirects disabled. Naver may change its page markup; unsupported responses fail visibly rather than reporting a complete archive.
 
 Verified against the real category: 13 pages, 127 distinct links (12 pages of 10 and a final page of 7). Listing works independently of RSS. Full-body/media import remains per selected article.
+
+## Version 10: listing cards
+
+Titles and summaries clamp to two lines. Mobile cards use one column up to 800px. Thumbnails use a stable 4:3 frame with contain fitting, preserving the complete original image without stretching or cropping; mint space fills mismatched proportions. The first card no longer spans multiple columns.
+
+## Version 11: approved thumbnail crop
+
+Article listing thumbnails use a fixed 4:3 frame with object-fit: cover and centered cropping, filling edge to edge. This supersedes version 10 contain fitting. Two-line titles/summaries and one mobile column remain.
