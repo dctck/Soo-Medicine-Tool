@@ -139,3 +139,13 @@ Naver paragraphs now retain single line breaks and intentional empty paragraphs 
 Bold, italic and underline toggle the selected text. Toolbar states reflect selected marks, including mixed selections. Text and highlight colors accept a six-digit hex color or the native color selector. Brand-friendly palettes, recent colors and favorites are stored in that browser. **Tx** removes all selected inline styles and links and restores the default body text style. Undo/redo and keyboard shortcuts are available within each text block. Cross-block reordering remains separate from text editing.
 
 Imported related links show a locally stored thumbnail, title, 30-character excerpt and short address. For a manually added link, paste a public Naver article URL and choose **네이버 링크 정보 가져오기**. Review or edit the title/description and choose another reusable thumbnail before saving. Automatic metadata fetching accepts only public Naver article URLs and allowlisted Naver image hosts. Unavailable thumbnails leave a link fallback. TalkTalk widgets become clean branded buttons without tracking URLs in the body. Map/video widgets are not exact Naver replicas.
+
+## Version 8: article header
+
+Article pages and article previews show the title followed by body sections, without automatically inserting the listing excerpt or cover. Author details and category remain on the public header. Excerpts and covers remain available for list cards and metadata. Body images appear only where their sections place them.
+
+## Version 9: older Naver posts
+
+The RSS option remains a recent-post list (up to 20). **전체 글 목록 불러오기** reads the public desktop category pages sequentially with progress, deduplicates URLs and marks existing imports. Category 9 is this clinic's 내과 클리닉; 0 requests the whole blog. The list operation does not import or publish articles. On a page failure it preserves results and offers resume. Per-page requests validate identifiers and numbers, have size/time limits, and target only blog.naver.com with redirects disabled. Naver may change its page markup; unsupported responses fail visibly rather than reporting a complete archive.
+
+Verified against the real category: 13 pages, 127 distinct links (12 pages of 10 and a final page of 7). Listing works independently of RSS. Full-body/media import remains per selected article.

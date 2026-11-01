@@ -1,3 +1,4 @@
+import {fetchPostList} from './naver-list.mjs';
 import {matchSourceSpacing} from '../../../public/assets/text-format.js';
 import {randomUUID} from 'node:crypto';
 import {article,treatment,settings,defaults,slug,fail,HttpError,text} from './model.mjs';
@@ -53,6 +54,9 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
   const id=path.split('/').pop();const url='/api/media/'+id;const content=JSON.stringify([await store.get('settings',{type:'json'}),await records(store,'articles/'),await records(store,'treatments/')]);if(content.includes(url))fail(409,'이 파일을 사용하는 글이나 홈페이지 설정이 있습니다. 사용 중인 위치에서 먼저 제거해 주세요.');await media.delete(id);await store.delete('media/'+id);return json({ok:true});
  }
 
+ if(path==='/admin/import/list'&&method==='POST'){
+ const value=await body(request);const result=await fetchPostList(value,fetcher);const saved=await records(store,'articles/');const indexed=new Map();for(const entry of saved){try{indexed.set(canonicalPost(entry.sourceUrl).url,entry);}catch{}}return json({...result,items:result.items.map(item=>{const existing=indexed.get(item.sourceUrl);return {...item,existingSlug:existing?.slug||'',existingStatus:existing?.status||''};})});
+ }
  if(path==='/admin/import/feed'&&method==='POST'){
   const value=await body(request),config=await store.get('settings',{type:'json'});const items=await fetchDrafts(value.blogId||config?.naverBlogId||env.NAVER_BLOG_ID||'kmd_jjs',fetcher);const saved=await records(store,'articles/');return json(items.map(item=>{const canonical=canonicalPost(item.sourceUrl).url;const existing=saved.find(x=>{try{return canonicalPost(x.sourceUrl).url===canonical;}catch{return false;}});return {...item,existingSlug:existing?.slug??'',existingStatus:existing?.status??''};}));
  }
