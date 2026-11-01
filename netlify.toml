@@ -35,6 +35,6 @@
 
 [dev]
   framework = "#static"
-  publish = "public"
+  publish = "dist"
   port = 8888
   autoLaunch = false
