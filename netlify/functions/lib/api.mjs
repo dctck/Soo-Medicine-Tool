@@ -1,8 +1,9 @@
+import {saveMedia} from './save-media.mjs';
 import {notifyInquiry,mailConfigured} from './inquiry-mail.mjs';
 import {fetchPostList} from './naver-list.mjs';
 import {matchSourceSpacing} from '../../../public/assets/text-format.js';
 import {randomUUID} from 'node:crypto';
-import {article,treatment,settings,publicSettings,defaults,slug,fail,HttpError,text} from './model.mjs';
+import {article,treatment,settings,publicSettings,resolveSettings,defaults,slug,fail,HttpError,text} from './model.mjs';
 import {authenticate,csrf,sameOrigin,verify,token,digest,cookie,sessionKey} from './auth.mjs';
 import {fetchDrafts} from './rss.mjs';
 import {mediaType} from './media.mjs';
@@ -25,11 +26,11 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
  }
  if(path==='/public/settings'&&method==='GET')return json(publicSettings(await store.get('settings',{type:'json'})));
  if(/^\/public\/(articles|treatments)(\/[a-z0-9-]+)?$/.test(path)&&method==='GET'){
-  const [,kind,id]=path.split('/').slice(1);const all=await records(store,kind+'/');const published=all.filter(x=>x.status==='published');
-  if(id){const item=published.find(x=>x.slug===id);if(!item)fail(404,'요청한 내용을 찾을 수 없습니다.');return json(item);}return json(published.sort((a,b)=>kind==='treatments'?a.order-b.order:(b.publishedAt??b.updatedAt).localeCompare(a.publishedAt??a.updatedAt)).map(x=>kind==='articles'?{slug:x.slug,title:x.title,excerpt:x.excerpt,cover:x.cover,publishedAt:x.publishedAt,treatments:x.treatments}:x));
+  const [,kind,id]=path.split('/').slice(1);const all=await records(store,kind+'/');const published=kind==='treatments'?all.map(x=>({slug:x.slug,title:x.title,order:x.order||0})):all.filter(x=>x.status==='published');
+  const tagNames=kind==='articles'?new Map((await records(store,'treatments/')).map(t=>[t.slug,t.title])):new Map();if(id){const item=published.find(x=>x.slug===id);if(!item)fail(404,'요청한 내용을 찾을 수 없습니다.');return json(item);}return json(published.sort((a,b)=>kind==='treatments'?a.order-b.order:(b.publishedAt??b.updatedAt).localeCompare(a.publishedAt??a.updatedAt)).map(x=>kind==='articles'?{slug:x.slug,title:x.title,excerpt:x.excerpt,cover:x.cover,publishedAt:x.publishedAt,treatments:x.treatments,treatmentTags:(x.treatments||[]).filter(id=>tagNames.has(id)).map(id=>({slug:id,title:tagNames.get(id)}))}:x));
  }
  if(path.startsWith('/media/')&&method==='GET'){
-  const id=path.slice(7);if(!/^[a-f0-9-]{36}$/.test(id))fail(404,'요청한 내용을 찾을 수 없습니다.');const result=await media.getWithMetadata(id,{type:'arrayBuffer'});if(!result)fail(404,'요청한 내용을 찾을 수 없습니다.');const bytes=new Uint8Array(result.data);const headers={'Content-Type':result.metadata.type,'X-Content-Type-Options':'nosniff','Cache-Control':'public, max-age=31536000, immutable','Accept-Ranges':'bytes'};
+  const id=path.slice(7);if(!/^[a-f0-9-]{36}$/.test(id))fail(404,'요청한 내용을 찾을 수 없습니다.');const item=media.provider==='r2'?await store.get('media/'+id,{type:'json'}):null;if(item?.storage==='r2'&&media.publicBase)return new Response(null,{status:302,headers:{Location:media.publicBase+'/media/'+id,'Cache-Control':'public, max-age=3600','X-Content-Type-Options':'nosniff'}});const source=media.provider==='r2'&&item?.storage!=='r2'?media.legacy:media;const result=await source.getWithMetadata(id,{type:'arrayBuffer'});if(!result)fail(404,'요청한 내용을 찾을 수 없습니다.');const bytes=new Uint8Array(result.data);const headers={'Content-Type':result.metadata.type,'X-Content-Type-Options':'nosniff','Cache-Control':'public, max-age=31536000, immutable','Accept-Ranges':'bytes'};
   const range=request.headers.get('range');if(range){const m=/^bytes=(\d*)-(\d*)$/.exec(range);let start,end;if(!m||(!m[1]&&!m[2]))return new Response(null,{status:416,headers:{'Content-Range':`bytes */${bytes.length}`}});if(!m[1]){start=Math.max(0,bytes.length-Number(m[2]));end=bytes.length-1;}else{start=Number(m[1]);end=m[2]?Math.min(Number(m[2]),bytes.length-1):bytes.length-1;}if(start>end||start>=bytes.length)return new Response(null,{status:416,headers:{'Content-Range':`bytes */${bytes.length}`}});return new Response(bytes.slice(start,end+1),{status:206,headers:{...headers,'Content-Range':`bytes ${start}-${end}/${bytes.length}`,'Content-Length':String(end-start+1)}});}return new Response(bytes,{headers:{...headers,'Content-Length':String(bytes.length)}});
  }
  const session=await authenticate(request,store,env);
@@ -44,18 +45,32 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
  if(path==='/admin/email/status'&&method==='GET')return json({configured:mailConfigured(env)});
  if(path==='/admin/email/test'&&method==='POST'){const slot=Math.floor(Date.now()/900000),prefix='attempts/mailtest/'+digest(context.ip??'shared')+'/'+slot+'/';let allowed=false;for(let i=0;i<3;i++){if((await store.setJSON(prefix+i,{at:Date.now()},{onlyIfNew:true})).modified){allowed=true;break;}}if(!allowed)fail(429,'테스트 메일은 15분 동안 최대 3회 보낼 수 있습니다.');const config={...defaults,...await store.get('settings',{type:'json'})};const result=await notifyInquiry({id:randomUUID(),settings:config,env,origin:u.origin,test:true,fetcher});if(result.status!=='accepted')fail(502,result.status==='failed'?'메일 발송 요청에 실패했습니다. Netlify 설정과 Resend 발신 도메인을 확인해 주세요.':'수신 이메일·알림 사용 여부와 Netlify 메일 연결 설정을 확인해 주세요.');return json({ok:true});}
  if(path==='/admin/settings/preview'&&method==='POST')return json(publicSettings(settings(await body(request))));
- if(path==='/admin/settings'){if(method==='GET')return json({...defaults,...await store.get('settings',{type:'json'})});if(method==='PUT'){const value=settings(await body(request));await store.setJSON('settings',value);return json(value);}}
+ if(path==='/admin/settings'){if(method==='GET')return json(resolveSettings(await store.get('settings',{type:'json'})||{}));if(method==='PUT'){const value=settings(await body(request));await store.setJSON('settings',value);return json(value);}}
  const match=/^\/admin\/(articles|treatments)(?:\/([a-z0-9-]+))?$/.exec(path);
  if(match){const [,kind,id]=match;if(method==='GET'&&!id)return json(await records(store,kind+'/'));
   if(method==='PUT'&&id){slug(id);const value=(kind==='articles'?article:treatment)(await body(request));if(value.slug!==id)fail(400,'글 주소가 일치하지 않습니다.');const old=await store.get(kind+'/'+id,{type:'json'});const now=new Date().toISOString();const saved={...value,createdAt:old?.createdAt??now,updatedAt:now,...(kind==='articles'?{publishedAt:value.status==='published'?(old?.publishedAt??now):null}:{})};await store.setJSON(kind+'/'+id,saved);return json(saved);}
   if(method==='DELETE'&&id){await store.delete(kind+'/'+slug(id));return json({ok:true});}
  }
+ if(path==='/admin/storage'&&method==='GET'){const items=await records(store,'media/'),articles=await records(store,'articles/');const local=items.filter(x=>x.storage!=='r2'),r2=items.filter(x=>x.storage==='r2');let bucket=null,connectionError=false;if(media.provider==='r2'){try{bucket=await media.usage();}catch{connectionError=true;}}return json({provider:media.provider||'netlify',r2Requested:env.MEDIA_STORAGE==='r2',directDelivery:Boolean(media.publicBase),connectionError,bucket,files:items.length,articles:articles.length,bytes:items.reduce((n,x)=>n+(Number(x.size)||0),0),savedBytes:items.reduce((n,x)=>n+Math.max(0,(Number(x.originalSize)||x.size)-x.size),0),legacyFiles:local.length,legacyBytes:local.reduce((n,x)=>n+(Number(x.size)||0),0),r2Files:r2.length,r2Bytes:r2.reduce((n,x)=>n+(Number(x.size)||0),0)});}
+ if(/^\/admin\/media\/[a-f0-9-]{36}\/migrate$/.test(path)&&method==='POST'){if(media.provider!=='r2')fail(409,'먼저 Netlify에서 R2 연결을 완료해 주세요.');const id=path.split('/')[3],item=await store.get('media/'+id,{type:'json'});if(!item)fail(404,'파일을 찾을 수 없습니다.');if(item.storage==='r2')return json(item);const file=await media.legacy.getWithMetadata(id,{type:'arrayBuffer'});if(!file)fail(404,'기존 파일을 찾을 수 없습니다.');const saved=await saveMedia({id,bytes:file.data,type:item.type,name:item.name,store,media,createdAt:item.createdAt});const moved={...saved,folderId:item.folderId||''};await store.setJSON('media/'+id,moved);return json({...moved,legacyCopyRetained:true});}
+ if(path==='/admin/media-folders'){
+  const folders=await records(store,'media-folders/');if(method==='GET')return json(folders);
+  if(method==='POST'){const input=await body(request),name=text(input.name,40).trim();if(!name)fail(400,'폴더 이름을 입력해 주세요.');if(folders.some(x=>x.name===name))fail(409,'같은 이름의 폴더가 있습니다.');const item={id:randomUUID(),name};await store.setJSON('media-folders/'+item.id,item);return json(item,201);}
+ }
+ if(/^\/admin\/media-folders\/[a-f0-9-]{36}$/.test(path)){
+  const id=path.split('/').pop(),key='media-folders/'+id;const folder=await store.get(key,{type:'json'});if(!folder)fail(404,'폴더를 찾을 수 없습니다.');
+  if(method==='PUT'){const input=await body(request),name=text(input.name,40).trim();if(!name)fail(400,'폴더 이름을 입력해 주세요.');if((await records(store,'media-folders/')).some(x=>x.id!==id&&x.name===name))fail(409,'같은 이름의 폴더가 있습니다.');const item={...folder,name};await store.setJSON(key,item);return json(item);}
+  if(method==='DELETE'){for(const item of await records(store,'media/'))if(item.folderId===id)await store.setJSON('media/'+item.id,{...item,folderId:''});await store.delete(key);return json({ok:true});}
+ }
+ if(/^\/admin\/media\/[a-f0-9-]{36}$/.test(path)&&method==='PUT'){
+  const id=path.split('/').pop(),item=await store.get('media/'+id,{type:'json'});if(!item)fail(404,'파일을 찾을 수 없습니다.');const input=await body(request),folderId=input.folderId||'';if(typeof folderId!=='string'||(folderId&&!await store.get('media-folders/'+folderId,{type:'json'})))fail(400,'폴더를 확인해 주세요.');const saved={...item,folderId};await store.setJSON('media/'+id,saved);return json(saved);
+ }
  if(path==='/admin/media'&&method==='GET')return json(await records(store,'media/'));
  if(path==='/admin/media'&&method==='POST'){
-  if(Number(request.headers.get('content-length'))>MAX)fail(413,'파일은 최대 4MB까지 업로드할 수 있습니다.');const bytes=await request.arrayBuffer();if(bytes.byteLength>MAX)fail(413,'파일은 최대 4MB까지 업로드할 수 있습니다.');const type=request.headers.get('content-type')?.split(';')[0];if(!mediaType(bytes,type))fail(400,'PNG·JPEG·WebP·GIF 이미지 또는 MP4·WebM 영상을 선택해 주세요. 파일 형식이 올바르지 않습니다.');const id=randomUUID();const item={id,url:'/api/media/'+id,name:text(u.searchParams.get('name'),150)||id,type,size:bytes.byteLength,createdAt:new Date().toISOString()};await media.set(id,bytes,{metadata:{type}});await store.setJSON('media/'+id,item);return json(item,201);
+  if(Number(request.headers.get('content-length'))>MAX)fail(413,'파일은 최대 4MB까지 업로드할 수 있습니다.');const bytes=await request.arrayBuffer();if(bytes.byteLength>MAX)fail(413,'파일은 최대 4MB까지 업로드할 수 있습니다.');const type=request.headers.get('content-type')?.split(';')[0];if(!mediaType(bytes,type))fail(400,'PNG·JPEG·WebP·GIF 이미지 또는 MP4·WebM 영상을 선택해 주세요. 파일 형식이 올바르지 않습니다.');const id=randomUUID();const folderId=u.searchParams.get('folder')||'';if(folderId&&!await store.get('media-folders/'+folderId,{type:'json'}))fail(400,'폴더를 확인해 주세요.');const item=await saveMedia({id,bytes,type,name:text(u.searchParams.get('name'),150)||id,store,media});const saved={...item,folderId};await store.setJSON('media/'+id,saved);return json(saved,201);
  }
  if(/^\/admin\/media\/[a-f0-9-]{36}$/.test(path)&&method==='DELETE'){
-  const id=path.split('/').pop();const url='/api/media/'+id;const content=JSON.stringify([await store.get('settings',{type:'json'}),await records(store,'articles/'),await records(store,'treatments/')]);if(content.includes(url))fail(409,'이 파일을 사용하는 글이나 홈페이지 설정이 있습니다. 사용 중인 위치에서 먼저 제거해 주세요.');await media.delete(id);await store.delete('media/'+id);return json({ok:true});
+  const id=path.split('/').pop();const url='/api/media/'+id;const content=JSON.stringify([await store.get('settings',{type:'json'}),await records(store,'articles/'),await records(store,'treatments/')]);if(content.includes(url))fail(409,'이 파일을 사용하는 글이나 홈페이지 설정이 있습니다. 사용 중인 위치에서 먼저 제거해 주세요.');const record=await store.get('media/'+id,{type:'json'});const source=media.provider==='r2'&&record?.storage!=='r2'?media.legacy:media;await source.delete(id);await store.delete('media/'+id);return json({ok:true});
  }
 
  if(path==='/admin/import/list'&&method==='POST'){
@@ -73,7 +88,7 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
   if(existing&&!value.refresh)return json({article:existing,existing:true});
   if(value.refresh&&(!existing||value.slug!==existing.slug))fail(409,'기존 글을 확인할 수 없습니다. 글 목록에서 다시 열어 주세요.');
   if(value.refresh&&existing.status==='published')fail(409,'게시된 글은 먼저 임시저장으로 변경한 후 본문을 교체해 주세요.');
-  const imported=await importFullPost(canonical.url,{store,media,fetcher});const now=new Date().toISOString();const content=article({...imported,...(existing?{slug:existing.slug,title:existing.title,excerpt:existing.excerpt,treatments:existing.treatments}:{}),status:'draft'});const result={...content,createdAt:existing?.createdAt??now,updatedAt:now,publishedAt:null};const write=await store.setJSON('articles/'+result.slug,result,existing?{}:{onlyIfNew:true});
+  const imported=await importFullPost(canonical.url,{store,media,fetcher});const now=new Date().toISOString();const content=article({...imported,...(existing?{slug:existing.slug,title:existing.title,excerpt:existing.excerpt,cover:existing.cover,coverAI:existing.coverAI,treatments:existing.treatments}:{}),status:'draft'});const result={...content,createdAt:existing?.createdAt??now,updatedAt:now,publishedAt:null};const write=await store.setJSON('articles/'+result.slug,result,existing?{}:{onlyIfNew:true});
   if(!write.modified)fail(409,'이미 가져온 글입니다. 글 목록에서 열어 주세요.');return json({article:result,existing:false,warnings:imported.warnings});
  }
  if(path==='/admin/import'&&method==='POST'){

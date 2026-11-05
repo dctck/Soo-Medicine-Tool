@@ -178,3 +178,79 @@ Settings no longer reassign the same video source after HTML autoplay starts. Th
 4. In the studio, open 홈페이지 편집 → 상담신청 이메일 알림. Set the recipient, enable email, save, then use 저장된 주소로 테스트 메일 보내기. Confirm receipt in the inbox/spam folder. Configure separate credentials for preview contexts if you want preview deployments to send mail.
 
 Email remains off by default. Until configured, inquiries continue to appear in 상담신청 관리. Automatic sending is bounded by the existing inquiry rate limit, has an eight-second timeout, no redirects, and uses idempotency per inquiry. Test email is capped at three requests per 15 minutes per IP. No public email endpoint accepts caller-supplied recipients.
+
+## Version 14: related treatments, notices and storage visibility
+
+Article related treatments use an expandable picker with + 새 진료 추가 at the top, checkboxes and inline editing. The modal saves a treatment independently without leaving the article. New treatments are linked immediately in the local article draft; save the article to persist its links. Private treatments remain hidden publicly until published. Unsaved article text is retained while using the modal.
+
+Navigation/editor changes clear stale status notices; errors also expire after ten seconds. Replacing Naver body content still requires an existing saved draft and deliberately confirmed replacement. Edited cover and cover AI flag now survive a full-body refresh. The importer chooses the first body image as the initial cover; older Naver listing thumbnails may be editorially different. Select a different 대표 이미지 manually from reusable media or upload it.
+
+공용 미디어 displays recorded upload count and total media bytes. This is not an account quota meter: it excludes built-in repository assets, JSON content/metadata, traffic and other projects. In production, CMS content/settings and media records are stored in soo-cms-v1; image/video bytes are in soo-media-v1 on Netlify Blobs. Local preview uses .netlify/blobs-serve and does not share production data. Deploy previews use isolated stores. GitHub holds source and bundled assets, not live CMS changes.
+
+For current account allowance, Netlify team dashboard → Usage & billing → Credit balance / Account usage insights. Account plan determines actual limits. See https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/monitor-usage-for-credit-based-plans/ . No automatic migration to another storage provider is included.
+
+## Version 15: optional R2 media, image optimization and usage panel
+
+Article/settings text remains in Netlify Blobs. New media can be written to a dedicated Cloudflare R2 Standard bucket. Existing Netlify media remains readable; no automatic deletion or bulk migration occurs. Media URLs in articles remain stable `/api/media/<id>` paths. With a custom R2 image domain configured, those routes redirect R2 files to Cloudflare and retain legacy Netlify reads. Without that domain, R2 files are proxied through Netlify, which still uses Netlify transfer/compute allowance. Cloudflare recommends custom domains for production caching rather than r2.dev.
+
+### Connect R2 without putting secrets in GitHub
+
+1. Activate R2 yourself; the subscription is pay-as-you-go beyond its free allowances. Use **Standard**, not Infrequent Access. A private empty bucket named `soo-clinic-media` has been prepared in the signed-in account. It is not yet connected to this site.
+2. Create an R2 account token with **Object Read & Write**, restricted to **soo-clinic-media only**. Do not use account-wide Admin permissions. This needs account-owner confirmation because it grants new persistent access. Store the Access Key ID and Secret Access Key only in Netlify environment variables; never paste them into public files or chat.
+3. In Netlify's project environment variables, set `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` for Production / Functions. Set `MEDIA_STORAGE=r2` only when ready. The environment defaults to Netlify until selected and complete. Local dev and deploy previews deliberately keep isolated Netlify media stores, avoiding production R2 writes.
+4. For direct image delivery, attach a dedicated image subdomain to this bucket in Cloudflare (for example `images.<your-domain>`), with a cache rule for `/media/*`. Only clinic media belongs in this publicly readable bucket; no patient inquiries or private CMS records are copied. Public-read configuration needs explicit approval. Set `R2_PUBLIC_BASE_URL=https://images.<your-domain>` in both Builds and Functions scopes, then redeploy. Build generates CSP permitting that one exact origin, not arbitrary external images. Do not set a development r2.dev host as a production caching substitute.
+5. Open 공용 미디어 in the studio. Check provider, current bucket bytes, optimization savings, and connection status. Upload a small test image and confirm it loads. Test a single old file with **R2로 복사** before migrating more. References do not change, and the Netlify original is retained for safety. Do not remove legacy copies before checking the live articles.
+
+### Storage and request monitoring
+
+The panel shows recorded media totals and, when connected, a paginated live R2 bucket-size measurement cached for up to 60 seconds. **8 GB** is this app's upload protection budget, leaving headroom below the 10 GB-month Standard free storage allowance. This is not an atomic account-wide quota or billing cap: concurrent writes, other buckets, out-of-app uploads and monthly operations can still affect billing. Upload/import/migration writes check the bucket measurement and reject further writes near that budget; listing failures also stop writes. No automatic escalation to a paid plan is implemented, but R2 itself is already usage-billed by Cloudflare.
+
+The panel's Cloudflare link is the authority for account-wide storage, monthly Class A/B operations and billable use. S3 object credentials do not grant account billing/analytics access, so monthly request counts are intentionally not fabricated in the studio. Check those in Cloudflare and configure its account budget alerts; spending alerts notify, not cap charges. R2 free allowances and pricing: https://developers.cloudflare.com/r2/pricing/ . Public bucket/domain guidance: https://developers.cloudflare.com/r2/buckets/public-buckets/ .
+
+### Automatic compression
+
+New JPEG, PNG and single-frame WebP images—including Naver body and related-link images—are rotated according to orientation, resized inside 1600×2400 without enlargement/cropping, and encoded as WebP at quality 84 when smaller (or when large dimensions must be reduced). Existing small originals are retained if conversion would increase file size. Animated images/GIF and videos are preserved. Original upload limit remains 4 MB. Files that cannot be decoded for optimization retain the existing signature-validated upload behavior; the panel does not claim savings for them. Original bytes are not kept for new optimized uploads; existing Netlify originals remain for copied files. Large images containing fine text should be visually reviewed after importing. Sharp is packaged as a native external dependency for Netlify; Linux binaries are installed during Netlify's build.
+
+No live R2 token has been created, secret installed, public access enabled, or production media migrated during preparation. The source is tested against a simulated S3 client and real local Netlify Blobs; a live connection test is still required after credentials and domain are configured.
+
+### Local next version: media folders and photo uploads
+
+The media library supports persistent named folders, renaming, folder filtering in the article picker, and moving uploaded files without changing URLs. Deleting a folder retains its files in 미분류. Folder metadata stays in the protected CMS store; these are library categories, not public URL directories. Included source assets remain managed in GitHub.
+
+파일 업로드 opens the computer picker and immediately processes selected files sequentially into the selected folder. JPEG/PNG/static WebP originals up to 50 MB can be selected. The browser preserves orientation/transparency and compresses to WebP with a 2400px long-edge bound before the existing 4 MB server request limit. Server optimization then applies the existing bounds. Conversion is visually optimized, not lossless, and does not retain the large original. GIF, animated WebP, MP4 and WebM retain the 4 MB upload limit; unsupported HEIC requires conversion first. Success notices expire after five seconds; errors after ten seconds, and navigation clears both.
+
+Verified locally with a 9,312,176-byte interior PNG: selected through the single upload button, stored at approximately 72 KB in its chosen folder, and found through the article picker folder filter. 71 automated tests pass, plus build and source checks. These changes have not been deployed to the live v13 website.
+
+### Local review: folder-first browsing and editor uploads
+
+Both the library and the image picker show folder cards with file counts, then a thumbnail grid inside a folder, with a back-to-folders control. Source assets have their own 기본 이미지 folder; uncategorized uploads are in 미분류. The picker remembers its last folder in browser-tab session storage, shared by image fields, and clears this preference on logout. Upload from the picker saves into the open folder (or 미분류 from the root/source-assets folder), refreshes the thumbnail choices, and lets the author deliberately select the new image.
+
+Body-image sections also accept public HTTPS image links after a successful browser preview. External image URLs remain external, are not copied to storage, and can be blocked or deleted by their hosts. Images use no-referrer requests. The server does not fetch arbitrary pasted URLs. Homepage media, article covers and link thumbnails still use library files. The generated image CSP permits HTTPS image sources while scripts and connections remain restricted to self. Local checks verified folder navigation, remembered picker location, direct picker upload, and external preview/rendering. 72 tests pass with build and source checks. Live v13 is unchanged.
+
+### Local review: conservative Naver highlights and text toolbar
+
+Naver background colors are parsed as explicit declarations. Only recognizable colored backgrounds on inline text (or mark tags) become highlights; transparent, white/near-white, grayscale, container backgrounds and uncertain syntax are skipped. This fixes the previous regex's whitespace backtracking false positives. Existing imported records are preserved; review a draft and deliberately reimport to use corrected source parsing.
+
+Text alignment is controlled by pressed-state toolbar buttons instead of a separate dropdown. Body sections support checklist, bullet and numbered modes via toolbar toggles, applying to that whole body block; use separate body blocks for mixed paragraph/list layouts. Inline formatting is retained in the rendered list. Legacy checklist blocks stay readable and become body checklist blocks when edited. Checklist markers are presentation, not patient task tracking. Related links have image/icon display modes and a locally served, allowlisted Lucide/Feather icon palette. ICON-LICENSE.txt retains ISC/MIT notices. No external icon script or arbitrary uploaded SVG is used.
+
+75 automated tests, build and source checks pass. Local browser checks verified active alignment/list toggles, removal of the separate alignment selector/checklist insertion tool, icon selection and preview rendering. Live v13 remains unchanged.
+
+### Local review: related treatments as tags
+
+Treatments are now name-only tags without draft/public controls or introduction fields. The public tag endpoint includes legacy draft names immediately but omits old descriptions and section bodies. Existing article associations and tag slugs are retained. Public articles display linked tags above the title; a tag opens the blog with that filter selected. Homepage treatment names also link to filtered articles. The editor preview includes selected tags. Creating a tag makes it available immediately; attaching/removing it on an article still requires saving the article. Unpublished articles remain private. 76 tests pass; live v13 is unchanged.
+
+## Local review release v16 — November 2, 2026
+
+Includes all preceding local editor/media/tag improvements, enlarged supplied doctor portrait, editable 약력·학술활동·저술논문, business-card contact information, and the working Kakao rough-map embed. The homepage video is a silent 30-second 1280×720 loop (1,909,288 bytes); the 818 MB original and compressed full-length review copy stay outside the deployment package.
+
+Homepage editor and public site use the same values. Existing v13 settings receive this release's doctor name, credentials, phone, address, hours, directions, map, portrait and video. Other saved wording, articles, uploaded media and private email configuration are preserved. Saving 홈페이지 편집 marks the update applied, and subsequent edits are retained. The ZIP contains no local test articles, credentials, tokens, node_modules, generated font subsets or local storage. Keep existing Netlify environment variables and deploy from the same project to retain its data.
+
+Kakao map runs in an isolated sandboxed frame with HTTPS resources; map directions also remain available as a normal external link. Verified the clinic marker and actual map tiles in the local homepage. Map renderer version is pinned to the official public renderer generated on November 2; if Kakao retires it, regenerate the rough-map embed and update its renderer version.
+
+Deploy only when ready. Live Netlify v13 has not been changed.
+
+## v17 contact and Naver import update
+
+Open `/admin/` directly to sign in. In 홈페이지 편집, 공통 메뉴·브랜드 contains the representative, business registration number, and Naver TalkTalk URL. The footer omits the business number until it is entered. Visitors can call or open TalkTalk from 오시는 길. The embedded map and Kakao directions link remain available.
+
+Naver imports reuse images with the same source or identical downloaded bytes. Existing media and articles stay intact. New imports preserve inline text emphasis and omit background highlights. To correct highlights in an existing article, clear the affected formatting in the editor or review a fresh import before replacing the draft body.

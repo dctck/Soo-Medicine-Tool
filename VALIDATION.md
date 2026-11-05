@@ -44,3 +44,19 @@ No hosted Netlify site was deployed or modified. Hosted Naver connectivity and d
 ## Version 13 verification
 
 63 automated tests pass. New coverage includes copy/settings persistence, migration defaults, HTTPS map URL validation, private recipient redaction, preview validation without persistence, email enablement/configuration checks, recipient/header validation, fixed Resend destination, idempotency, protected/rate-limited tests, provider failures preserving inquiry acceptance and browser-local preview expiry. Real Netlify Blobs SDK integration passes. Browser QA shows grouped Korean website controls, private email configuration status, and unsaved hours/directions rendered in a separate marked homepage preview with consultation controls disabled. Production settings were not changed. Live email delivery has not been tested because sending credentials are not configured; simulated provider responses cover success/failure paths.
+
+## Version 15 preparation verification
+
+70 automated tests pass, adding S3 endpoint/public-origin validation, paginated bucket totals/cache, upload-budget rejection, successful-write invalidation, retained Netlify fallback, real Sharp dimension/proportion/no-upscale checks, protected storage stats, R2 CDN redirects and non-deleting migration. Real Netlify Blobs SDK integration still passes. Production npm audit reports zero vulnerabilities. Browser shows actual local totals (5 files / about 4.9 MB), clear Netlify provider status and account-usage link. Test compression of the clinic interior photo saved about 60% (175,540 to 70,222 bytes). Cloudflare confirms the new dedicated private Standard bucket is empty; live R2 writes/read/CDN configuration remain pending credential approval and a domain. No production content was migrated or removed.
+
+## Local review release v16 — November 2, 2026
+
+Includes all preceding local editor/media/tag improvements, enlarged supplied doctor portrait, editable 약력·학술활동·저술논문, business-card contact information, and the working Kakao rough-map embed. The homepage video is a silent 30-second 1280×720 loop (1,909,288 bytes); the 818 MB original and compressed full-length review copy stay outside the deployment package.
+
+Homepage editor and public site use the same values. Existing v13 settings receive this release's doctor name, credentials, phone, address, hours, directions, map, portrait and video. Other saved wording, articles, uploaded media and private email configuration are preserved. Saving 홈페이지 편집 marks the update applied, and subsequent edits are retained. The ZIP contains no local test articles, credentials, tokens, node_modules, generated font subsets or local storage. Keep existing Netlify environment variables and deploy from the same project to retain its data.
+
+Kakao map runs in an isolated sandboxed frame with HTTPS resources; map directions also remain available as a normal external link. Verified the clinic marker and actual map tiles in the local homepage. Map renderer version is pinned to the official public renderer generated on November 2; if Kakao retires it, regenerate the rough-map embed and update its renderer version.
+
+Deploy only when ready. Live Netlify v13 has not been changed.
+
+Release checks: 78 automated tests passed; build and source/deployment checks passed. Desktop portrait and embedded map visually reviewed; 390px mobile profile typography/layout reviewed.

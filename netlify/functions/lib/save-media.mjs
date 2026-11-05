@@ -1,0 +1,2 @@
+import {optimizeImage} from './image-optimize.mjs';
+export async function saveMedia({id,bytes,type,name,store,media,createdAt,folderId,onlyIfNew=false}){const file=await optimizeImage(bytes,type);await media.set(id,file.bytes,{metadata:{type:file.type}});const item={id,...(folderId?{folderId}:{}),url:'/api/media/'+id,name,type:file.type,size:file.bytes.length,originalSize:file.originalSize,optimized:file.optimized,storage:media.provider||'netlify',createdAt:createdAt||new Date().toISOString()};await store.setJSON('media/'+id,item,onlyIfNew?{onlyIfNew:true}:{});return item;}

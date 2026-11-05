@@ -1,0 +1,11 @@
+node_modules/
+.netlify/
+.env
+.env.*
+!.env.example
+dist/
+.DS_Store
+*.zip
+
+# Generated font assets are supplied by the build, not source uploads.
+public/assets/fonts/
