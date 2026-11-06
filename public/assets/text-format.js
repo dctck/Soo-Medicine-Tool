@@ -12,3 +12,53 @@ export function formatRuns(runs,start,end,property,value){const selected=sliceRu
 // Match text before repairing spacing, retaining existing formatting and edited wording.
 export function matchSourceSpacing(oldRuns,oldText,sourceText){const current=normalizeRuns(oldRuns,oldText);const original=runsText(current);if(original.replace(/\s/g,'')!==sourceText.replace(/\s/g,''))return null;const letters=[];for(const run of current)for(const char of run.text)if(!/\s/.test(char))letters.push({...run,text:char});const output=[];let index=0;for(const char of sourceText){if(/\s/.test(char)){const style=letters[index]||letters[index-1]||{};output.push({...style,text:char});}else{output.push({...letters[index++],text:char});}}return normalizeRuns(output);}
 export const truncateText=(value,length)=>{const chars=Array.from(String(value??'').replace(/\s+/g,' ').trim());return chars.length>length?chars.slice(0,length).join('')+'…':chars.join('');};
+
+export function listLines(section,text){
+ return text.split('\n').map((_,i)=>{
+  const value=Array.isArray(section.lineLists)?section.lineLists[i]:section.listType;
+  return ['bullet','number','checklist'].includes(value)?value:'';
+ });
+}
+
+export function selectedLines(text,start,end){
+ const first=text.slice(0,start).split('\n').length-1;
+ const last=text.slice(0,end>start?end-1:end).split('\n').length-1;
+ return [first,Math.max(first,last)];
+}
+
+export function resizeListLines(previous,next,lists){
+ let start=0,end=0;
+ while(start<previous.length&&start<next.length&&previous[start]===next[start])start++;
+ while(end<previous.length-start&&end<next.length-start&&previous.at(-end-1)===next.at(-end-1))end++;
+ const first=previous.slice(0,start).split('\n').length-1;
+ const removed=previous.slice(start,previous.length-end).split('\n').length-1;
+ const added=next.slice(start,next.length-end).split('\n').length-1;
+ return [...lists.slice(0,first),...Array(added+1).fill(lists[first]||''),...lists.slice(first+removed+1)];
+}
+
+export function listDepths(section,modes){
+ let previous=0;
+ return modes.map((mode,i)=>{
+  const limit=modes[i-1]?Math.min(5,previous+1):0;
+  previous=mode?Math.max(0,Math.min(limit,Math.trunc(Number(section.lineDepths?.[i])||0))):0;
+  return previous;
+ });
+}
+
+export function listMarker(mode,depth,number){
+ if(mode==='bullet')return ['●','○','■'][depth%3];
+ if(mode!=='number')return '';
+ if(depth%3===1){
+  let label='';
+  for(let n=number;n>0;n=Math.floor((n-1)/26))label=String.fromCharCode(97+(n-1)%26)+label;
+  return label+'.';
+ }
+ if(depth%3===2){
+  let label='',n=number;
+  for(const [value,part] of [[1000,'m'],[900,'cm'],[500,'d'],[400,'cd'],[100,'c'],[90,'xc'],[50,'l'],[40,'xl'],[10,'x'],[9,'ix'],[5,'v'],[4,'iv'],[1,'i']]){
+   while(n>=value){label+=part;n-=value;}
+  }
+  return label+'.';
+ }
+ return number+'.';
+}

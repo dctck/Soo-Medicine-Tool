@@ -25,7 +25,7 @@ export function applySiteCopy(settings,root=document){for(const node of root.que
  if(settings.footerSupportVisible===false)continue;
  const contact=document.createElement('div');contact.className='footer-support';
  const heading=document.createElement('strong');heading.textContent='고객지원';contact.append(heading);
- for(const [label,value,isPhone] of [['대표번호',settings.phone,true],['대표자',settings.representative],['사업자등록번호',settings.businessNumber]]){
+ for(const [label,value,isPhone] of [['대표번호',settings.footerPhone,true],['대표자',settings.representative],['사업자등록번호',settings.businessNumber]]){
   if(!value)continue;
   const row=document.createElement('div');const name=document.createElement('span');name.textContent=label;
   const detail=document.createElement(isPhone?'a':'span');detail.textContent=value;

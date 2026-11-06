@@ -114,3 +114,98 @@ section.doctor.block{padding:72px 0 64px}.doctor-grid{grid-template-columns:minm
 }
 
 .visit-info > p:has(.talk-banner:not([hidden])) { margin-bottom: 2rem; }
+
+.article-location {
+  margin: 1.5rem 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+.article-location .clinic-map { min-height: 0; border: 0; border-radius: 0; }
+.article-location .clinic-map iframe { height: 260px; }
+.article-location-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .75rem 1rem;
+}
+.article-location-info p { margin: .15rem 0 0; color: var(--muted); font-size: .9rem; }
+.article-location-info a { font-weight: 700; }
+a.article-location-booking {
+  display: inline-grid;
+  justify-items: center;
+  gap: .2rem;
+  color: #008b28;
+  font-size: .8rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.article-location-booking::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  background: url("https://editor-static.pstatic.net/v/basic/1.78.1/img/se-sp-viewer.ee5afa38.png") -274px -225px / 466px 418px no-repeat;
+}
+.article-location-booking:hover { text-decoration: underline; }
+.article-talk { margin: 1.5rem 0 2rem; text-align: center; }
+.article-talk .talk-banner { color: #fff; text-decoration: none; }
+
+.article-body h2.emphasis-title {
+  border-inline-start: 4px solid var(--brand-dark);
+  padding-inline-start: .75em;
+  color: var(--brand-dark);
+  background: transparent;
+}
+
+.article-body h2.emphasis-title {
+  min-height: 34px;
+  border: 0;
+  border-inline-start: 6px solid var(--brand-dark);
+  padding: 4px 0 4px 14px;
+  color: #075966;
+  font: 400 20px/1.3 var(--sans);
+  text-align: start;
+  white-space: pre-line;
+}
+.article-body h2.emphasis-title::before { content: none; }
+.article-body blockquote.quote-line { background: rgb(8 119 135 / 4%); }
+.article-body em, .rich-input em { font-style: italic; letter-spacing: normal; }
+
+.italic-gap-start { margin-inline-start: 2px; }
+.italic-gap-end { margin-inline-end: 2px; }
+
+.article-body .article-structured-list {
+  list-style: none;
+  padding-inline-start: 0;
+}
+.article-body .article-structured-list .article-structured-list {
+  margin: 0;
+  padding-inline-start: 24px;
+}
+.article-structured-list > li, .rich-list-line.has-list-marker {
+  position: relative;
+  padding-inline-start: 1.85em;
+}
+.line-list-marker {
+  position: absolute;
+  inset-inline-start: 0;
+  width: 1.25em;
+  text-align: center;
+  color: #14999b;
+  font-weight: 700;
+  pointer-events: none;
+  user-select: none;
+}
+.line-list-marker svg {
+  width: 1em;
+  height: 1em;
+  vertical-align: -.12em;
+}
+
+.line-list-marker.bullet-marker {
+  font-size: .55em;
+  line-height: 3.25;
+  width: 2.25em;
+}
