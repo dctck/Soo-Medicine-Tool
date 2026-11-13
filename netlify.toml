@@ -12,14 +12,8 @@
   to = "/.netlify/functions/api/:splat"
   status = 200
   force = true
-[[redirects]]
-  from = "/blog/:slug/"
-  to = "/blog/article.html"
-  status = 200
-[[redirects]]
-  from = "/blog/:slug"
-  to = "/blog/article.html"
-  status = 200
+[functions.search]
+  included_files = ["public/blog/*.html"]
 [[headers]]
   for = "/*"
   [headers.values]

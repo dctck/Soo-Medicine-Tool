@@ -1,3 +1,4 @@
+import './metrics.js';
 import {listLines,listDepths,listMarker} from './text-format.js';
 import {contactBlockType,renderContactBlock} from './clinic-details.js';
 import {linkIcon} from './link-icons.js';

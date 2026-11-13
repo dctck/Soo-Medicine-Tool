@@ -2,3 +2,5 @@ User-agent: *
 Disallow: /admin/
 Disallow: /api/admin/
 Disallow: /api/auth/
+
+Sitemap: https://sooclinic.kr/sitemap.xml

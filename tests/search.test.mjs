@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {load} from 'cheerio';
+import {XMLParser} from 'fast-xml-parser';
+import {searchData,sitemap,rss,renderPage} from '../netlify/functions/lib/search.mjs';
+const settings={name:'수 한의원',doctorName:'진준수',address:'서울',talkUrl:'https://talk.naver.com/w5u6ki'};
+const article={slug:'test-article',status:'published',title:'건강 & 이야기',excerpt:'한줄소개',publishedAt:'2026-11-01T00:00:00Z',sections:[{type:'heading',text:'안내'},{type:'text',text:'전체 본문 <script>alert(1)</script>'},{type:'image',url:'javascript:alert(1)',alt:'x'}]};
+test('search data excludes drafts and unsafe slugs',async()=>{const values={'articles/a':article,'articles/b':{...article,slug:'draft',status:'draft'},'articles/c':{...article,slug:'../private'}};const store={list:async()=>({blobs:Object.keys(values).map(key=>({key}))}),get:async key=>values[key]};const result=await searchData(store);assert.deepEqual(result.articles.map(a=>a.slug),['test-article']);});
+test('sitemap has public canonical routes and valid XML',()=>{const data=new XMLParser().parse(sitemap([article]));assert.deepEqual(data.urlset.url.map(u=>u.loc),['https://sooclinic.kr/','https://sooclinic.kr/blog/','https://sooclinic.kr/blog/test-article']);});
+test('RSS includes full escaped article body and publication date',()=>{const feed=new XMLParser().parse(rss([article],settings));assert.equal(feed.rss.channel.item.title,article.title);assert.match(feed.rss.channel.item.description,/전체 본문/);assert.doesNotMatch(feed.rss.channel.item.description,/<script>|javascript:/);assert.equal(feed.rss.channel.item.pubDate,'Sun, 01 Nov 2026 00:00:00 GMT');});
+test('article response contains content and metadata before JavaScript runs',async()=>{const template=await readFile('public/blog/article.html','utf8');const $=load(renderPage(template,article,settings,[article]));assert.equal($('h1').text(),article.title);assert.equal($('link[rel=canonical]').attr('href'),'https://sooclinic.kr/blog/test-article');assert.match($('#article').text(),/전체 본문/);assert.equal($('#article script').length,0);assert.equal($('meta[property="og:title"]').attr('content'),article.title+' | 수 한의원');});
+test('blog index includes crawlable article links without JavaScript',async()=>{const template=await readFile('public/blog/index.html','utf8');const $=load(renderPage(template,null,settings,[article]));assert.equal($('#articles a').attr('href'),'/blog/test-article');});

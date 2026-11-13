@@ -124,3 +124,5 @@
 .rich-list-line[data-depth="3"] { margin-inline-start: min(72px, 15%); width: calc(100% - min(72px, 15%)); }
 .rich-list-line[data-depth="4"] { margin-inline-start: min(96px, 20%); width: calc(100% - min(96px, 20%)); }
 .rich-list-line[data-depth="5"] { margin-inline-start: min(120px, 25%); width: calc(100% - min(120px, 25%)); }
+
+.metrics-summary{padding:20px 0;margin-bottom:24px;border-bottom:1px solid #d6e5e7}.metrics-summary h3{margin:0 0 12px}.metrics-summary small{display:block;color:#607b80;line-height:1.6}

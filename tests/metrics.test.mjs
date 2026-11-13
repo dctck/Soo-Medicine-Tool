@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {metricDay,trackMetric,metricReport} from '../netlify/functions/lib/metrics.mjs';
+const now=Date.parse('2026-11-12T16:00:00Z'),session='12345678-1234-1234-1234-123456789abc';
+function memory(){const map=new Map([['articles/example',{status:'published'}]]);return {map,get:async key=>map.get(key),setJSON:async(key,value)=>{if(!map.has(key))map.set(key,value);},list:async({prefix})=>({blobs:[...map.keys()].filter(k=>k.startsWith(prefix)).map(key=>({key}))})};}
+test('metrics use Korea calendar date',()=>assert.equal(metricDay(now),'2026-11-13'));
+test('repeat visits and article opens count once per session per day',async()=>{const store=memory();await trackMetric(store,{session,path:'/'},now);await trackMetric(store,{session,path:'/blog/example'},now);await trackMetric(store,{session,path:'/blog/example'},now);const result=await metricReport(store,now);assert.equal(result.today,1);assert.equal(result.articles.example,1);assert.equal(result.month,1);});
+test('drafts, admin, and invalid sessions are not counted',async()=>{const store=memory();assert.equal(await trackMetric(store,{session,path:'/admin/'},now),false);assert.equal(await trackMetric(store,{session,path:'/blog/missing'},now),false);assert.equal(await trackMetric(store,{session:'bad',path:'/'},now),false);assert.equal((await metricReport(store,now)).month,0);});
+test('time windows exclude older visits',async()=>{const store=memory();await trackMetric(store,{session,path:'/'},now-8*86400000);const report=await metricReport(store,now);assert.equal(report.today,0);assert.equal(report.week,0);assert.equal(report.month,1);});
