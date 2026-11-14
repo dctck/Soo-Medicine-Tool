@@ -1,3 +1,4 @@
+import {resolveArticleLinks} from '../../../public/assets/article-links.js';
 import {trackMetric,metricReport} from './metrics.mjs';
 import {saveMedia} from './save-media.mjs';
 import {notifyInquiry,mailConfigured} from './inquiry-mail.mjs';
@@ -29,7 +30,7 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
  if(path==='/public/settings'&&method==='GET')return json(publicSettings(await store.get('settings',{type:'json'})));
  if(/^\/public\/(articles|treatments)(\/[a-z0-9-]+)?$/.test(path)&&method==='GET'){
   const [,kind,id]=path.split('/').slice(1);const all=await records(store,kind+'/');const published=kind==='treatments'?all.map(x=>({slug:x.slug,title:x.title,order:x.order||0})):all.filter(x=>x.status==='published');
-  const tagNames=kind==='articles'?new Map((await records(store,'treatments/')).map(t=>[t.slug,t.title])):new Map();if(id){const item=published.find(x=>x.slug===id);if(!item)fail(404,'요청한 내용을 찾을 수 없습니다.');return json(item);}return json(published.sort((a,b)=>kind==='treatments'?a.order-b.order:(b.publishedAt??b.updatedAt).localeCompare(a.publishedAt??a.updatedAt)).map(x=>kind==='articles'?{slug:x.slug,title:x.title,excerpt:x.excerpt,cover:x.cover,publishedAt:x.publishedAt,treatments:x.treatments,treatmentTags:(x.treatments||[]).filter(id=>tagNames.has(id)).map(id=>({slug:id,title:tagNames.get(id)}))}:x));
+  const tagNames=kind==='articles'?new Map((await records(store,'treatments/')).map(t=>[t.slug,t.title])):new Map();if(id){const item=published.find(x=>x.slug===id);if(!item)fail(404,'요청한 내용을 찾을 수 없습니다.');return json(kind==='articles'?resolveArticleLinks(item,all):item);}return json(published.sort((a,b)=>kind==='treatments'?a.order-b.order:(b.publishedAt??b.updatedAt).localeCompare(a.publishedAt??a.updatedAt)).map(x=>kind==='articles'?{slug:x.slug,title:x.title,excerpt:x.excerpt,cover:x.cover,publishedAt:x.publishedAt,treatments:x.treatments,treatmentTags:(x.treatments||[]).filter(id=>tagNames.has(id)).map(id=>({slug:id,title:tagNames.get(id)}))}:x));
  }
  if(path.startsWith('/media/')&&method==='GET'){
   const id=path.slice(7);if(!/^[a-f0-9-]{36}$/.test(id))fail(404,'요청한 내용을 찾을 수 없습니다.');const item=media.provider==='r2'?await store.get('media/'+id,{type:'json'}):null;if(item?.storage==='r2'&&media.publicBase)return new Response(null,{status:302,headers:{Location:media.publicBase+'/media/'+id,'Cache-Control':'public, max-age=3600','X-Content-Type-Options':'nosniff'}});const source=media.provider==='r2'&&item?.storage!=='r2'?media.legacy:media;const result=await source.getWithMetadata(id,{type:'arrayBuffer'});if(!result)fail(404,'요청한 내용을 찾을 수 없습니다.');const bytes=new Uint8Array(result.data);const headers={'Content-Type':result.metadata.type,'X-Content-Type-Options':'nosniff','Cache-Control':'public, max-age=31536000, immutable','Accept-Ranges':'bytes'};
@@ -50,7 +51,7 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
  if(path==='/admin/settings/preview'&&method==='POST')return json(publicSettings(settings(await body(request))));
  if(path==='/admin/settings'){if(method==='GET')return json(resolveSettings(await store.get('settings',{type:'json'})||{}));if(method==='PUT'){const value=settings(await body(request));await store.setJSON('settings',value);return json(value);}}
  const match=/^\/admin\/(articles|treatments)(?:\/([a-z0-9-]+))?$/.exec(path);
- if(match){const [,kind,id]=match;if(method==='GET'&&!id)return json(await records(store,kind+'/'));
+ if(match){const [,kind,id]=match;if(method==='GET'&&!id){const all=await records(store,kind+'/');return json(kind==='articles'?all.map(item=>resolveArticleLinks(item,all)):all);}
   if(method==='PUT'&&id){slug(id);const value=(kind==='articles'?article:treatment)(await body(request));if(value.slug!==id)fail(400,'글 주소가 일치하지 않습니다.');const old=await store.get(kind+'/'+id,{type:'json'});const now=new Date().toISOString();const saved={...value,createdAt:old?.createdAt??now,updatedAt:now,...(kind==='articles'?{publishedAt:value.status==='published'?(old?.publishedAt??now):null}:{})};await store.setJSON(kind+'/'+id,saved);return json(saved);}
   if(method==='DELETE'&&id){await store.delete(kind+'/'+slug(id));return json({ok:true});}
  }
@@ -91,7 +92,7 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
   if(existing&&!value.refresh)return json({article:existing,existing:true});
   if(value.refresh&&(!existing||value.slug!==existing.slug))fail(409,'기존 글을 확인할 수 없습니다. 글 목록에서 다시 열어 주세요.');
   if(value.refresh&&existing.status==='published')fail(409,'게시된 글은 먼저 임시저장으로 변경한 후 본문을 교체해 주세요.');
-  const imported=await importFullPost(canonical.url,{store,media,fetcher});const now=new Date().toISOString();const content=article({...imported,...(existing?{slug:existing.slug,title:existing.title,excerpt:existing.excerpt,cover:existing.cover,coverAI:existing.coverAI,treatments:existing.treatments}:{}),status:'draft'});const result={...content,createdAt:existing?.createdAt??now,updatedAt:now,publishedAt:null};const write=await store.setJSON('articles/'+result.slug,result,existing?{}:{onlyIfNew:true});
+  const imported=await importFullPost(canonical.url,{store,media,fetcher});const now=new Date().toISOString();const content=article({...resolveArticleLinks(imported,saved),...(existing?{slug:existing.slug,title:existing.title,excerpt:existing.excerpt,cover:existing.cover,coverAI:existing.coverAI,treatments:existing.treatments}:{}),status:'draft'});const result={...content,createdAt:existing?.createdAt??now,updatedAt:now,publishedAt:null};const write=await store.setJSON('articles/'+result.slug,result,existing?{}:{onlyIfNew:true});
   if(!write.modified)fail(409,'이미 가져온 글입니다. 글 목록에서 열어 주세요.');return json({article:result,existing:false,warnings:imported.warnings});
  }
  if(path==='/admin/import'&&method==='POST'){

@@ -11,9 +11,13 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@aws-sdk/client-s3@^3.1161.0",
+        "npm:@fontsource-variable/noto-sans-kr@^5.3.1",
         "npm:@netlify/blobs@^10.5.0",
+        "npm:cheerio@^1.2.0",
         "npm:fast-xml-parser@^5.3.0",
-        "npm:netlify-cli@23"
+        "npm:netlify-cli@23",
+        "npm:sharp@~0.35.5"
       ]
     }
   }

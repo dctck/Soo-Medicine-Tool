@@ -13,7 +13,7 @@
   status = 200
   force = true
 [functions.search]
-  included_files = ["public/blog/*.html"]
+  included_files = ["dist/blog/*.html"]
 [[headers]]
   for = "/*"
   [headers.values]

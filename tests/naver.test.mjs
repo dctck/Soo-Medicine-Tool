@@ -17,7 +17,7 @@ test('import downloads images into reusable local media and retains full body',a
  assert.equal(s.data.get(mediaKey).folderId,'stickers');assert.equal(s.files.size,1);assert.equal(calls.filter(x=>x.url.includes('pstatic.net')).length,1);});
 test('failed images are visibly marked without dropping text or claiming completeness',async()=>{const s=stores();const result=await importFullPost('https://blog.naver.com/kmd_jjs/224457638569',{...s,fetcher:async url=>new URL(url).hostname==='blog.naver.com'?new Response(html):new Response('denied',{status:403})});assert.equal(result.sections[1].type,'text');assert.ok(result.sections[1].text.includes('이미지를 가져오지 못했습니다'));assert.ok(result.importNote.includes('0/1'));assert.ok(result.warnings.length);assert.equal(result.sections.at(-1).text,'LAST PARAGRAPH is preserved.');});
 
-test('import keeps safe Naver inline emphasis and paragraph alignment',()=>{const formatted='<div class="se-main-container"><div class="se-component se-text"><p class="se-text-paragraph" style="text-align:center"><b>굵게</b><span style="color:#b010a0;background-color:#ffff99">강조</span></p></div></div>';const parsed=parseNaverHTML(formatted);assert.equal(parsed.sections[0].align,'center');assert.equal(parsed.sections[0].runs[0].bold,true);assert.equal(parsed.sections[0].runs[1].tone,'magenta');assert.equal(parsed.sections[0].runs[1].highlight,undefined);});
+test('import keeps safe Naver inline emphasis and paragraph alignment',()=>{const formatted='<div class="se-main-container"><div class="se-component se-text"><p class="se-text-paragraph" style="text-align:center"><b>굵게</b><span style="color:#b010a0;background-color:#ffff99">강조</span></p></div></div>';const parsed=parseNaverHTML(formatted);assert.equal(parsed.sections[0].align,'center');assert.equal(parsed.sections[0].runs[0].bold,true);assert.equal(parsed.sections[0].runs[1].color,'#b010a0');assert.equal(parsed.sections[0].runs[1].highlightColor,'#fff2a1');assert.equal(parsed.sections[0].runs[1].highlight,undefined);});
 test('Naver paragraph spacing retains single lines and intentional blank paragraphs',()=>{const result=parseNaverHTML('<div class="se-main-container"><div class="se-component se-text"><p class="se-text-paragraph">첫째</p><p class="se-text-paragraph">둘째</p><p class="se-text-paragraph"><br></p><p class="se-text-paragraph">셋째</p></div></div>');assert.equal(result.sections[0].runs.map(x=>x.text).join(''),'첫째\n둘째\n\n셋째');assert.equal(result.sections[0].text,'첫째\n둘째\n\n셋째');});
 test('Naver related cards use summary, local thumbnail and clean TalkTalk button',async()=>{const raw='<div class="se-main-container"><div class="se-component se-text"><p class="se-text-paragraph">Body</p></div><div class="se-component se-oglink"><a href="https://blog.naver.com/soo/12345678"><strong class="se-oglink-title">Article title</strong><span class="se-oglink-summary">Short description</span><img src="https://blogthumb.pstatic.net/image.png"></a></div><div class="se-component se-talktalk"><a href="https://talk.naver.com/abc?tracking=long">Talk</a></div></div>';const s=stores();const result=await importFullPost('https://blog.naver.com/soo/12345678',{...s,fetcher:async url=>new URL(url).hostname==='blog.naver.com'?new Response(raw):new Response(new Uint8Array([137,80,78,71,13,10,26,10]),{headers:{'Content-Type':'image/png'}})});assert.equal(result.sections[1].text,'Short description');assert.match(result.sections[1].thumbnail,/^\/api\/media\//);assert.equal(result.sections[2].url,'https://talk.naver.com/abc');assert.equal(result.sections[2].type,'button');});
 
@@ -30,4 +30,23 @@ test('different Naver image URLs with identical bytes reuse a single library ite
  const second=await importFullPost('https://blog.naver.com/soo/123457',{...storage,fetcher});
  assert.equal(first.cover,second.cover);
  assert.equal(storage.files.size,1);
+});
+
+test('image-rich Naver posts import and save beyond the old 50-section and 20-image limits',async()=>{
+ const {article}=await import('../netlify/functions/lib/model.mjs');
+ const body=Array.from({length:28},(_,i)=>`<div class="se-component se-text"><p class="se-text-paragraph">본문 ${i}</p></div><div class="se-component se-image"><img class="se-image-resource" src="https://blogfiles.pstatic.net/image-${i}.png"></div>`).join('');
+ const source=`<meta property="og:title" content="사진이 많은 글"><div class="se-main-container">${body}</div>`;
+ const fetcher=async url=>new URL(url).hostname==='blog.naver.com'?new Response(source,{headers:{'Content-Type':'text/html'}}):new Response(new Uint8Array([137,80,78,71,13,10,26,10]),{headers:{'Content-Type':'image/png'}});
+ const result=await importFullPost('https://blog.naver.com/kmd_jjs/223532087087',{...stores(),fetcher});
+ assert.equal(result.sections.length,56);
+ assert.equal(result.sections.filter(s=>s.type==='image').length,28);
+ assert.equal(article(result).sections.length,56);
+ assert.ok(result.importNote.includes('28/28'));
+});
+
+test('oversized section counts remain bounded in parser and saved articles',async()=>{
+ const {sections}=await import('../netlify/functions/lib/model.mjs');
+ const blocks=Array.from({length:201},()=>'<div class="se-component se-text"><p class="se-text-paragraph">본문</p></div>').join('');
+ assert.throws(()=>parseNaverHTML(`<div class="se-main-container">${blocks}</div>`),e=>e.status===413);
+ assert.throws(()=>sections(Array.from({length:201},()=>({type:'text',text:'본문'}))));
 });
