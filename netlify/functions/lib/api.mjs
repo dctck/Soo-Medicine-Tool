@@ -1,5 +1,5 @@
 import {resolveArticleLinks} from '../../../public/assets/article-links.js';
-import {trackMetric,metricReport} from './metrics.mjs';
+import {trackMetric,metricReport,trackTalkClick,talkClickReport,todayTalkClicks,userActivityReport} from './metrics.mjs';
 import {saveMedia} from './save-media.mjs';
 import {notifyInquiry,mailConfigured} from './inquiry-mail.mjs';
 import {fetchPostList} from './naver-list.mjs';
@@ -26,6 +26,7 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
  if(path==='/public/inquiries'&&method==='POST'){
   sameOrigin(request);const input=await body(request);const validation=validateInquiry(input);if(validation.error)fail(400,validation.error);const bucket=Math.floor(Date.now()/900000),prefix=`attempts/inquiry/${digest(context.ip??'shared')}/${bucket}/`;let permitted=false;for(let i=0;i<5;i++){const write=await store.setJSON(prefix+i,{at:Date.now()},{onlyIfNew:true});if(write.modified){permitted=true;break;}}if(!permitted)fail(429,'상담신청 횟수를 초과했습니다. 잠시 후 다시 시도해 주세요.');const id=randomUUID(),now=Date.now();const record={id,...validation.value,status:'new',createdAt:new Date(now).toISOString(),expiresAt:now+30*86400000};await store.setJSON('inquiries/'+id,record);const config={...defaults,...await store.get('settings',{type:'json'})};const notification=await notifyInquiry({id,settings:config,env,origin:u.origin,fetcher});await store.setJSON('inquiries/'+id,{...record,notification});return json({ok:true},201);
  }
+ if(path==='/public/talktalk-clicks'&&method==='POST'){sameOrigin(request);if(!/bot|crawler|spider|Yeti|Headless/i.test(request.headers.get('user-agent')||''))await trackTalkClick(store,await body(request));return new Response(null,{status:204,headers:{'Cache-Control':'no-store'}});}
  if(path==='/public/metrics'&&method==='POST'){sameOrigin(request);if(!/bot|crawler|spider|Yeti|Headless/i.test(request.headers.get('user-agent')||''))await trackMetric(store,await body(request));return new Response(null,{status:204,headers:{'Cache-Control':'no-store'}});}
  if(path==='/public/settings'&&method==='GET')return json(publicSettings(await store.get('settings',{type:'json'})));
  if(/^\/public\/(articles|treatments)(\/[a-z0-9-]+)?$/.test(path)&&method==='GET'){
@@ -41,6 +42,9 @@ export function createAPI({store,media,env=process.env,fetcher=fetch}){return as
  if(path==='/auth/session'&&method==='GET')return json({csrf:session.csrf,expires:session.expires});
  if(path==='/auth/logout'&&method==='POST'){await store.delete(session.key);return json({ok:true},200,{'Set-Cookie':cookie('',0)});}
 
+ if(path==='/admin/activity-today'&&method==='GET')return json(await todayTalkClicks(store));
+ if(path==='/admin/user-activity'&&method==='GET')return json(await userActivityReport(store,{days:u.searchParams.get('days'),before:u.searchParams.get('before')||''}));
+ if(path==='/admin/talktalk-clicks'&&method==='GET')return json(await talkClickReport(store,{days:u.searchParams.get('days'),before:u.searchParams.get('before')||''}));
  if(path==='/admin/metrics'&&method==='GET')return json(await metricReport(store));
  if(path==='/admin/inquiries'&&method==='GET')return json((await records(store,'inquiries/')).filter(x=>x.expiresAt>Date.now()).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)));
  if(/^\/admin\/inquiries\/[a-f0-9-]{36}$/.test(path)){

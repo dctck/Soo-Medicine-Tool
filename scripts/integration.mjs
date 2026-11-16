@@ -14,10 +14,12 @@ function apiAt(port){const options={apiURL:`http://localhost:${port}`,edgeURL:`h
 let handler;async function call(path,method='GET',value,headers={}){return handler(new Request('https://soo.test/api'+path,{method,headers:{origin:'https://soo.test',cookie,'X-CSRF-Token':csrf,...(value!==undefined?{'Content-Type':'application/json'}:{}),...headers},body:value===undefined?undefined:JSON.stringify(value)}),{ip:'test-client'});}
 try{
  const {port}=await server.start();handler=apiAt(port);
+ assert.equal((await call('/admin/talktalk-clicks')).status,401);assert.equal((await call('/admin/user-activity')).status,401);assert.equal((await call('/admin/activity-today')).status,401);
  const login=await call('/auth/login','POST',{password});assert.equal(login.status,200);cookie=login.headers.get('set-cookie').split(';')[0];csrf=(await login.json()).csrf;
  const article={title:'Persistent story',slug:'persistent-story',status:'draft',sections:[{type:'text',text:'Created against the actual Blobs SDK.'}],treatments:[]};
  assert.equal((await call('/admin/articles/persistent-story','PUT',article)).status,200);assert.equal((await call('/public/articles/persistent-story')).status,404);
  assert.equal((await call('/admin/articles/persistent-story','PUT',{...article,status:'published'})).status,200);
+ const click={id:'12345678-1234-1234-1234-123456789abc',path:'/blog/persistent-story',placement:'article',device:'mobile'};assert.equal((await call('/public/talktalk-clicks','POST',click)).status,204);const clicks=await (await call('/admin/talktalk-clicks')).json();assert.equal(clicks.total,1);assert.equal(clicks.events[0].articleTitle,'Persistent story');const activity=await (await call('/admin/user-activity?days=all')).json();assert.equal(activity.total,1);assert.equal(activity.series.at(-1).clicks,1);assert.equal((await (await call('/admin/activity-today')).json()).today,1);
  assert.equal((await call('/public/inquiries','POST',{name:'테스트',contact:'01000000000',topic:'진료 안내',consent:true})).status,201);
  // Restart the storage server, keeping its directory. New API/store instances must read the data.
  await server.stop();server=new BlobsServer({directory:dir,token,logger:()=>{}});const restarted=await server.start();handler=apiAt(restarted.port);
