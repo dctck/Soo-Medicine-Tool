@@ -1,3 +1,4 @@
+import {generalTalkURL,talkURL} from '../../../public/assets/talk-url.js';
 import {hasAISparkle} from './ai-watermark.mjs';
 import {importedHighlight} from '../../../public/assets/import-highlight.js';
 import {saveMedia} from './save-media.mjs';
@@ -20,8 +21,8 @@ export function parseNaverHTML(html){const $=load(html);const main=$('.se-main-c
  const components=main.children('.se-component');if(!components.length)fail(422,'원문 구조를 인식할 수 없습니다. 요약으로 대체하지 않았습니다.');
  components.each((i,node)=>{const block=$(node),cls=block.attr('class')??'';
   if(block.hasClass('se-image')){const imgs=block.find('img.se-image-resource');const candidates=imgs.length?imgs:block.find('img');candidates.each((j,img)=>{const raw=$(img).attr('data-lazy-src')||$(img).attr('data-src')||$(img).attr('src');const url=imageURL(raw);if(url)sections.push({type:'image',url,alt:clean($(img).attr('alt')),text:clean(block.find('.se-caption').text()),ai:/Gemini[_ -]Generated[_ -]Image|ChatGPT[_ -]Image/i.test(decodeURIComponent(url))||/AI\s*활용|AI[- ]generated/i.test(block.find('.se-caption').text())});else{warnings.push('이미지 주소를 안전하게 가져올 수 없어 원문 확인이 필요합니다.');pushText('text','[원문 이미지: 직접 업로드해 주세요.]');}});return;}
-  if(block.hasClass('se-oglink')){const a=block.find('a[href]').first(),href=a.attr('href');if(/^https:\/\//.test(href??'')){sections.push({type:'link',url:href,title:clean(block.find('.se-oglink-title').text())||'원문 관련 링크',text:clean(block.find('.se-oglink-summary').text()),thumbnail:thumbnailURL(block.find('img').first().attr('src'))});}else pushText('text',blockText(node));return;}
-  if(block.hasClass('se-talktalk')){const href=block.find('a[href]').first().attr('href');if(/^https:\/\/talk\.naver\.com\//.test(href??'')){const u=new URL(href);sections.push({type:'button',url:u.origin+u.pathname,title:clean(block.text())});}return;}
+  if(block.hasClass('se-oglink')){const a=block.find('a[href]').first(),href=a.attr('href');if(generalTalkURL(href)){sections.push({type:'talktalk',url:talkURL(href)});return;}if(/^https:\/\//.test(href??'')){sections.push({type:'link',url:href,title:clean(block.find('.se-oglink-title').text())||'원문 관련 링크',text:clean(block.find('.se-oglink-summary').text()),thumbnail:thumbnailURL(block.find('img').first().attr('src'))});}else pushText('text',blockText(node));return;}
+  if(block.hasClass('se-talktalk')){const href=block.find('a[href]').first().attr('href');if(generalTalkURL(href))sections.push({type:'talktalk',url:talkURL(href)});return;}
   if(block.hasClass('se-placesMap')){const name=clean(block.find('.se-map-title').text())||clean(block.text()).split(' 이 블로그')[0];sections.push({type:'link',url:'https://map.naver.com/p/search/'+encodeURIComponent(name),title:'위치 안내',text:name});return;}
   if(block.hasClass('se-text')){pushText('text',blockText(node),formattedText(node));return;}
   if(block.hasClass('se-sectionTitle')){pushText('heading',blockText(node));return;}

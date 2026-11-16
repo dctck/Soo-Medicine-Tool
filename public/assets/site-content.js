@@ -1,7 +1,8 @@
+import {renderContactDock} from './contact-dock.js';
 // Public copy schema shared by the studio, renderer and server validation.
 export const copyGroups=[
 ['공통 메뉴·브랜드',[
-['navDoctor','의료진 메뉴','의료진','.nav a[href="/#doctor"]'],['navTreatments','진료 안내 메뉴','진료 안내','.nav a[href="/#treatments"]'],['navJournal','건강 이야기 메뉴','건강 이야기','.nav a[href="/blog/"]'],['navContact','오시는 길 메뉴','오시는 길 ↗','.nav a[href="/#contact"]'],['representative','대표자','진준수',''],['businessNumber','사업자등록번호','',''],['talkUrl','네이버 톡톡 주소','https://talk.naver.com/w5u6ki','','url'],['footerText','푸터 문구','수 한의원 · 몸과 일상을 잇다','.footer>span:last-child']]],
+['navDoctor','의료진 메뉴','의료진','.nav a[href="/#doctor"]'],['navTreatments','진료 안내 메뉴','진료 안내','.nav a[href="/#treatments"]'],['navJournal','건강 이야기 메뉴','건강 이야기','.nav a[href="/blog/"]'],['navContact','오시는 길 메뉴','오시는 길 ↗','.nav a[href="/#contact"]'],['representative','대표자','진준수',''],['businessNumber','사업자등록번호','',''],['kakaoTalkUrl','카톡 상담 주소','','','url'],['talkUrl','네이버 톡톡 주소','https://talk.naver.com/w5u6ki','','url'],['footerText','푸터 문구','수 한의원 · 몸과 일상을 잇다','.footer>span:last-child']]],
 ['첫 화면·소개 영상',[
 ['heroEyebrow','첫 화면 작은 제목','A MOMENT FOR YOURSELF','.hero .eyebrow'],['filmLabel','영상 위 문구','THE SOO EXPERIENCE','.film-label'],['heroFootLeft','영상 아래 왼쪽 문구','CARE BEGINS WITH LISTENING','.hero-foot span:first-child'],['heroFootCenter','영상 아래 가운데 문구','수 한의원 · SOO','.hero-foot span:nth-child(2)'],['heroFootRight','영상 아래 오른쪽 문구','SCROLL TO EXPLORE ↓','.hero-foot span:last-child']]],
 ['의료진 소개',[
@@ -20,7 +21,7 @@ export const copyGroups=[
 ['pageTitle','홈페이지 브라우저 제목','수 한의원 | SOO Korean Medicine',''],['metaDescription','홈페이지 검색 소개','몸의 이야기에 귀 기울이는 수 한의원. 의료진 소개, 진료 안내와 건강 이야기를 만나보세요.','']]]
 ];
 export const copyDefaults=Object.fromEntries(copyGroups.flatMap(([,fields])=>fields.map(([key,,value])=>[key,value])));
-export function applySiteCopy(settings,root=document){for(const node of root.querySelectorAll('.footer>span:first-of-type'))node.textContent='© '+new Date().getFullYear()+' '+(settings.englishName||'SOO KOREAN MEDICINE');for(const [,fields]of copyGroups)for(const [key,,fallback,selector,kind]of fields){if(!selector)continue;for(const node of root.querySelectorAll(selector)){const value=settings[key]??fallback;if(kind==='placeholder')node.setAttribute('placeholder',value);else node.textContent=value;}}for(const footer of root.querySelectorAll('.footer')){
+export function applySiteCopy(settings,root=document){if(root===document)renderContactDock(settings);for(const node of root.querySelectorAll('.footer>span:first-of-type'))node.textContent='© '+new Date().getFullYear()+' '+(settings.englishName||'SOO KOREAN MEDICINE');for(const [,fields]of copyGroups)for(const [key,,fallback,selector,kind]of fields){if(!selector)continue;for(const node of root.querySelectorAll(selector)){const value=settings[key]??fallback;if(kind==='placeholder')node.setAttribute('placeholder',value);else node.textContent=value;}}for(const footer of root.querySelectorAll('.footer')){
  footer.querySelector('.footer-support')?.remove();
  if(settings.footerSupportVisible===false)continue;
  const contact=document.createElement('div');contact.className='footer-support';

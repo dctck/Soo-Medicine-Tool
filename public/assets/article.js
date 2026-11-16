@@ -11,7 +11,7 @@ async function load(){try{
  target.replaceChildren();
  const body=el('div','',{class:'article-body'});renderSections(body,item.sections,'article-section',{aiBadges:true,fullBleed:true,settings,toc:true,tocLegacy:item.tocManaged!==true});target.append(body);
  if(httpsLink(item.sourceUrl))target.append(el('a','네이버 원문 보기 ↗',{href:item.sourceUrl,target:'_blank',rel:'noopener noreferrer',class:'small-link'}));target.append(el('p','이 글은 일반적인 건강 정보이며, 개인의 상태에 따른 진료와 상담을 대신하지 않습니다.',{class:'notice'}));
- if(settings.phone){for(const id of ['#article-phone','#mobile-phone']){$(id).href='tel:'+settings.phone.replace(/[^+\d]/g,'');$(id).textContent='전화 상담';}}
+ if(settings.phone){for(const id of ['#article-phone','#mobile-phone']){const phoneLink=$(id);if(phoneLink){phoneLink.href='tel:'+settings.phone.replace(/[^+\d]/g,'');phoneLink.textContent='전화 상담';}}}
  const all=await api('/public/articles').catch(()=>[]);const more=all.filter(x=>x.slug!==item.slug).sort((a,b)=>Number(b.treatments.some(t=>item.treatments.includes(t)))-Number(a.treatments.some(t=>item.treatments.includes(t)))).slice(0,3);if(more.length){$('#more-band').hidden=false;cards($('#more-articles'),more);}
  if(location.hash.startsWith('#article-section-'))document.getElementById(location.hash.slice(1))?.scrollIntoView();
  }catch(e){heading.replaceChildren(el('h1',e.status===404?'이야기를 찾을 수 없습니다.':'이야기를 불러오지 못했습니다.'));target.replaceChildren(el('a','모든 이야기로 돌아가기',{href:'/blog/'}));}}

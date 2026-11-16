@@ -1,3 +1,4 @@
+import {talkURL} from './talk-url.js';
 import {renderDoctorDetails,renderContactMap} from './clinic-details.js';
 import {applySiteCopy,previewSettings} from './site-content.js';
 import {configureHeroVideo} from './hero-video.js';
@@ -6,7 +7,7 @@ const video=$('#intro'),control=$('#film-control');let intentionalPause=matchMed
 function videoState(){control.textContent=video.paused?'재생 ▷':'일시정지 Ⅱ';control.setAttribute('aria-label',video.paused?'영상 재생':'영상 일시정지');}
 video.addEventListener('play',videoState);video.addEventListener('pause',videoState);control.onclick=async()=>{if(video.paused){intentionalPause=false;try{await video.play();}catch{}}else{intentionalPause=true;video.pause();}videoState();};if(intentionalPause){video.autoplay=false;video.pause();}videoState();
 const settingsReady=api('/public/settings').then(saved=>{const previewId=new URLSearchParams(location.search).get('studioPreview'),draft=previewSettings(previewId,localStorage),s=draft||saved;applySiteCopy(s);document.title=s.pageTitle;document.querySelector('meta[name=description]').content=s.metaDescription;if(draft){const banner=el('div','저장 전 미리보기 · 공개 홈페이지에는 반영되지 않았습니다.',{class:'studio-preview-banner'});document.body.prepend(banner);}for(const [selector,key] of [['#hero-title','heroTitle'],['#hero-text','heroText'],['#doctor-bio','doctorBio']])$(selector).textContent=s[key];$('#doctor-name').textContent=s.doctorName||s.name;renderDoctorDetails($('#doctor-details'),s);for(const [selector,key] of [['#portrait','portrait'],['#interior','interior']]){$(selector).hidden=!safeMedia(s[key]);if(safeMedia(s[key]))$(selector).src=s[key];}$('.video-frame').hidden=!safeMedia(s.video);if(!safeMedia(s.video))video.pause();if(safeMedia(s.video))configureHeroVideo(video,s.video,{paused:intentionalPause});
- const talk=$('#clinic-talk');const talkUrl=httpsLink(s.talkUrl);talk.hidden=!talkUrl;if(talkUrl)talk.href=talkUrl;const phone=$('#clinic-phone');phone.textContent=s.phone||'';phone.hidden=!s.phone;phone.href='tel:'+(s.phone||'').replace(/[^+\d]/g,'');$('#clinic-address').textContent=s.address||'';
+ const talk=$('#clinic-talk');const talkUrl=talkURL(s.talkUrl);talk.hidden=!talkUrl;if(talkUrl)talk.href=talkUrl;const phone=$('#clinic-phone');phone.textContent=s.phone||'';phone.hidden=!s.phone;phone.href='tel:'+(s.phone||'').replace(/[^+\d]/g,'');$('#clinic-address').textContent=s.address||'';
  const compact=value=>value.replace(/\s+/g,'');
  const addressLines=new Set((s.address||'').split('\n').map(compact));
  const directions=(s.directions||'').split('\n').filter(line=>line.trim()&&!addressLines.has(compact(line))).join('\n');
