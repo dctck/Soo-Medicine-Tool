@@ -1,5 +1,5 @@
 import {talkURL} from './talk-url.js';
-import {renderDoctorDetails,renderContactMap} from './clinic-details.js';
+import {renderDoctorDetails,renderLandingMap} from './clinic-details.js';
 import {applySiteCopy,previewSettings} from './site-content.js';
 import {configureHeroVideo} from './hero-video.js';
 import {$,el,api,cards,renderSections,safeMedia,httpsLink} from './shared.js';
@@ -21,8 +21,19 @@ const settingsReady=api('/public/settings').then(saved=>{const previewId=new URL
    if(station[3])detail.append(document.createTextNode(station[3]));
   }
  }
- renderContactMap($('#clinic-map'),$('#kakao-map-link'),s);$('#clinic-hours-title').textContent=s.hours?s.hoursLabel:s.contactEmptyLabel;
+ renderLandingMap($('#clinic-map'),$('#kakao-map-link'),s);$('#kakao-map-link').textContent='네이버 지도 열기 ↗';$('#clinic-hours-title').textContent=s.hours?s.hoursLabel:s.contactEmptyLabel;
  $('#clinic-hours').textContent=s.hours||s.contactEmpty;
  if(httpsLink(s.bookingUrl)){$('#booking').href=s.bookingUrl;$('#booking').hidden=false;}return s;}).catch(()=>null);
 api('/public/treatments').then(async items=>{const config=await settingsReady;const list=$('#treatments-list');list.replaceChildren();if(!items.length)list.append(el('p',config?.treatmentEmpty||'자세한 진료 안내를 준비하고 있습니다.',{class:'empty'}));for(const t of items)list.append(el('a',t.title,{class:'article-pill treatment-tag',id:'treatment-'+t.slug,href:'/blog/?treatment='+encodeURIComponent(t.slug)}));if(location.hash.startsWith('#treatment-')){const d=document.getElementById(location.hash.slice(1));if(d){d.scrollIntoView();}}}).catch(()=>$('#treatments-list').replaceChildren(el('p','진료 안내를 불러오지 못했습니다. 잠시 후 다시 방문해 주세요.',{class:'error'})));
 api('/public/articles').then(items=>cards($('#journal'),items.slice(0,3))).catch(()=>$('#journal').replaceChildren(el('p','이야기를 불러오지 못했습니다. 잠시 후 다시 방문해 주세요.',{class:'error'})));
+
+// Loading the portrait, articles and video changes document height after initial hash navigation.
+// Re-align once these layout changes settle; stop if the visitor starts scrolling themselves.
+if(location.hash==='#contact'){
+ document.documentElement.classList.add('contact-arrival');
+ let stopped=false;const stop=()=>{stopped=true;observer.disconnect();document.documentElement.classList.remove('contact-arrival');};
+ const align=()=>{if(!stopped&&location.hash==='#contact')document.getElementById('contact')?.scrollIntoView({behavior:'instant',block:'start'});};
+ const observer=new ResizeObserver(align);observer.observe(document.querySelector('main'));
+ for(const name of ['wheel','touchstart','pointerdown','keydown'])window.addEventListener(name,stop,{once:true,passive:true});
+ settingsReady.then(align);window.addEventListener('load',align,{once:true});setTimeout(stop,10000);
+}

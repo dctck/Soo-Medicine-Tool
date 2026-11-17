@@ -50,3 +50,7 @@ test('oversized section counts remain bounded in parser and saved articles',asyn
  assert.throws(()=>parseNaverHTML(`<div class="se-main-container">${blocks}</div>`),e=>e.status===413);
  assert.throws(()=>sections(Array.from({length:201},()=>({type:'text',text:'본문'}))));
 });
+test('Naver imports skip embedded place maps while preserving surrounding text',()=>{
+ const result=parseNaverHTML('<div class="se-main-container"><div class="se-component se-text"><p class="se-text-paragraph">Before the map</p></div><div class="se-component se-placesMap"><span class="se-map-title">수한의원</span><p>Map widget text</p></div><div class="se-component se-text"><p class="se-text-paragraph">After the map</p></div></div>');
+ assert.deepEqual(result.sections.map(s=>s.text),['Before the map','After the map']);assert.equal(result.sections.some(s=>s.type==='location'||s.title==='위치 안내'),false);
+});
